@@ -212,10 +212,13 @@ def make_per_source_file_html(build_dir, out_dir, records):
 
                     # Text
                     column = record['location']['column']
+                    html_for_message = ''
+                    for item in record['message']:
+                        html_for_message += escape(str(item))
                     # Column number is 1-based:
                     indent = ' ' * (column - 1)
                     f.write('    <td><pre style="margin: 0 0;">%s^%s</pre></td>\n'
-                            % (indent, escape(record['message'])))
+                            % (indent, html_for_message))
 
                     f.write('  </tr>\n')
 
