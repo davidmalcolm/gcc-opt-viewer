@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 # TODO: license
 import argparse
+import html
 import json
 import os
 import sys
@@ -47,15 +48,36 @@ def write_td_pass(f, record):
     else:
         bgcolor = ''
     f.write('    <td bgcolor="%s">\n' % bgcolor)
+
+    impl_url = None
+    impl_file = record['impl_location']['file']
+    impl_line = record['impl_location']['line']
+    # FIXME: something of a hack:
+    PREFIX = '../../src/'
+    if impl_file.startswith(PREFIX):
+        relative_file = impl_file[len(PREFIX):]
+        impl_url = ('https://github.com/gcc-mirror/gcc/tree/master/%s#L%i'
+                    % (relative_file, impl_line))
+    if impl_url:
+        f.write('<a href="%s">\n' % impl_url)
+
+    # FIXME: link to GCC source code
     if 'pass' in record:
-        f.write(escape(record['pass']))
+        f.write(html.escape(record['pass']))
+
+    if impl_url:
+        f.write('</a>')
+
     f.write('    </td>\n')
 
 def write_td_count(f, record):
     f.write('    <td style="text-align:right">\n')
     if 'count' in record:
-        f.write(escape(str(int(record['count']['value']))))
+        f.write(html.escape(str(int(record['count']['value']))))
     f.write('    </td>\n')
+
+def url_from_location(loc):
+    return '%s#line-%i' % (srcfile_to_html(loc['file']), loc['line'])
 
 def make_index_html(out_dir, records):
     # Sort by highest-count down to lowest-count
@@ -79,9 +101,8 @@ def make_index_html(out_dir, records):
             f.write('    <td>\n')
             if 'location' in record:
                 loc = record['location']
-                f.write('<a href="%s#line-%i">'
-                        % (srcfile_to_html(loc['file']), loc['line']))
-                f.write(escape("%s:%s:%i"
+                f.write('<a href="%s">' % url_from_location (loc))
+                f.write(html.escape("%s:%s:%i"
                                % (loc['file'], loc['line'], loc['column'])))
                 f.write('</a>')
             f.write('    </td>\n')
@@ -91,7 +112,7 @@ def make_index_html(out_dir, records):
 
             # Function:
             f.write('    <td>\n')
-            f.write(escape(record['function']))
+            f.write(html.escape(record['function']))
             f.write('    <td>\n')
 
             # Pass:
@@ -167,7 +188,7 @@ def make_per_source_file_html(build_dir, out_dir, records):
             f.write('<html>\n')
             f.write('<link rel="stylesheet" href="style.css" type="text/css" />\n')
             f.write('<body>\n')
-            f.write('<h1>%s</h1>' % escape(src_file))
+            f.write('<h1>%s</h1>' % html.escape(src_file))
             f.write('<table>\n')
             f.write('  <tr>\n')
             f.write('    <th>Line</th>\n')
@@ -214,7 +235,20 @@ def make_per_source_file_html(build_dir, out_dir, records):
                     column = record['location']['column']
                     html_for_message = ''
                     for item in record['message']:
-                        html_for_message += escape(str(item))
+                        if type(item) is dict:
+                            text = ''
+                            if 'expr' in item:
+                                text = item['expr']
+                            elif 'stmt' in item:
+                                text = item['stmt']
+                            html_for_item = html.escape(text)
+                            if 'location' in item:
+                                loc = item['location']
+                                html_for_item = ('<a href="%s">%s</a>'
+                                                 % (url_from_location (loc), html_for_item))
+                            html_for_message += html_for_item
+                        else:
+                            html_for_message += html.escape(str(item))
                     # Column number is 1-based:
                     indent = ' ' * (column - 1)
                     f.write('    <td><pre style="margin: 0 0;">%s^%s</pre></td>\n'
