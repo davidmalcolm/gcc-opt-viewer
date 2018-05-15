@@ -123,6 +123,29 @@ def make_index_html(out_dir, records):
         f.write('</body>\n')
         f.write('</html>\n')
 
+def get_html_for_message(record):
+    html_for_message = ''
+    for item in record['message']:
+        if type(item) is dict:
+            text = ''
+            if 'expr' in item:
+                text = item['expr']
+            elif 'stmt' in item:
+                text = item['stmt']
+            html_for_item = html.escape(text)
+            if 'location' in item:
+                loc = item['location']
+                html_for_item = ('<a href="%s">%s</a>'
+                                 % (url_from_location (loc), html_for_item))
+            html_for_message += html_for_item
+        else:
+            html_for_message += html.escape(str(item))
+    if 'children' in record:
+        for child in record['children']:
+            for line in get_html_for_message(child).splitlines():
+                html_for_message += '\n  ' + line
+    return html_for_message
+
 def make_per_source_file_html(build_dir, out_dir, records):
     # Dict of list of record, grouping by source file
     by_src_file = {}
@@ -233,26 +256,14 @@ def make_per_source_file_html(build_dir, out_dir, records):
 
                     # Text
                     column = record['location']['column']
-                    html_for_message = ''
-                    for item in record['message']:
-                        if type(item) is dict:
-                            text = ''
-                            if 'expr' in item:
-                                text = item['expr']
-                            elif 'stmt' in item:
-                                text = item['stmt']
-                            html_for_item = html.escape(text)
-                            if 'location' in item:
-                                loc = item['location']
-                                html_for_item = ('<a href="%s">%s</a>'
-                                                 % (url_from_location (loc), html_for_item))
-                            html_for_message += html_for_item
-                        else:
-                            html_for_message += html.escape(str(item))
+                    html_for_message = get_html_for_message(record)
                     # Column number is 1-based:
                     indent = ' ' * (column - 1)
-                    f.write('    <td><pre style="margin: 0 0;">%s^%s</pre></td>\n'
-                            % (indent, html_for_message))
+                    lines = indent + '<span style="color:green;">^</span>'
+                    for line in html_for_message.splitlines():
+                        lines += line + '\n' + indent
+                    f.write('    <td><pre style="margin: 0 0;">%s</pre></td>\n'
+                            % lines)
 
                     f.write('  </tr>\n')
 
