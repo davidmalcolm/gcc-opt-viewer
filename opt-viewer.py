@@ -218,6 +218,7 @@ def make_per_source_file_html(build_dir, out_dir, records):
             f.write('    <th>Hotness</th>\n')
             f.write('    <th>Pass</th>\n')
             f.write('    <th>Source</th>\n')
+            f.write('    <th>Inlining Chain</th>\n')
             f.write('  </tr>\n')
             for line_num, html_line in enumerate(html_lines, start=1):
                 # Add row for the source line itself.
@@ -265,7 +266,29 @@ def make_per_source_file_html(build_dir, out_dir, records):
                     f.write('    <td><pre style="margin: 0 0;">%s</pre></td>\n'
                             % lines)
 
+                    # Inlining Chain:
+                    f.write('    <td><table>\n')
+                    first = True
+                    for inline in record.get('inlining_chain', []):
+                        f.write('  <tr><td>')
+                        if not first:
+                            f.write ('inlined from ')
+                        f.write('<code>%s</code>' % html.escape(inline['fndecl']))
+                        site = inline.get('site', None)
+                        if site:
+                            f.write(' at <a href="%s">%s:%i:%i</a>'
+                                    % (url_from_location(site),
+                                       html.escape(site['file']),
+                                       site['line'],
+                                       site['column']))
+                        f.write('</td></tr>\n')
+                        first = False
+                    f.write('    </table></td>\n')
+
                     f.write('  </tr>\n')
+
+                # Inlining Chain:
+                f.write('    <td></td>\n')
 
             f.write('</table>\n')
             f.write('</body>\n')
