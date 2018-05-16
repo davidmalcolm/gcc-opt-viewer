@@ -239,6 +239,9 @@ def make_per_source_file_html(build_dir, out_dir, records):
                 f.write(html_line)
                 f.write('</pre></div></td>\n')
 
+                # Inlining Chain:
+                f.write('    <td></td>\n')
+
                 f.write('  </tr>\n')
 
                 # Add extra rows for any optimization records that apply to
@@ -286,9 +289,6 @@ def make_per_source_file_html(build_dir, out_dir, records):
                     f.write('    </table></td>\n')
 
                     f.write('  </tr>\n')
-
-                # Inlining Chain:
-                f.write('    <td></td>\n')
 
             f.write('</table>\n')
             f.write('</body>\n')
