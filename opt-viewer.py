@@ -163,6 +163,15 @@ def make_per_source_file_html(build_dir, out_dir, records):
     # Write style.css
     with open(os.path.join(out_dir, "style.css"), "w") as f:
         f.write(formatter.get_style_defs())
+        f.write('''
+table {
+    border-collapse: collapse;
+}
+
+table, td, th, tr {
+    border: 1px solid black;
+}
+''')
 
     for src_file in by_src_file:
         if 0:
