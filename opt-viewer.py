@@ -169,7 +169,7 @@ table {
 }
 
 table, td, th, tr {
-    border: 1px solid black;
+    border: 1px solid lightgrey;
 }
 ''')
 
