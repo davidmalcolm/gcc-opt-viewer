@@ -299,10 +299,10 @@ def make_per_source_file_html(build_dir, out_dir, records):
                             % lines)
 
                     # Inlining Chain:
-                    f.write('    <td><table>\n')
+                    f.write('    <td><ul class="list-group">\n')
                     first = True
                     for inline in record.get('inlining_chain', []):
-                        f.write('  <tr><td>')
+                        f.write('  <li class="list-group-item">')
                         if not first:
                             f.write ('inlined from ')
                         f.write('<code>%s</code>' % html.escape(inline['fndecl']))
@@ -313,9 +313,9 @@ def make_per_source_file_html(build_dir, out_dir, records):
                                        html.escape(site['file']),
                                        site['line'],
                                        site['column']))
-                        f.write('</td></tr>\n')
+                        f.write('</li>\n')
                         first = False
-                    f.write('    </table></td>\n')
+                    f.write('    </ul></td>\n')
 
                     f.write('  </tr>\n')
 
