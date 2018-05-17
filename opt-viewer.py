@@ -40,10 +40,17 @@ def record_sort_key(record):
         return 0
     return -record['count']['value']
 
+def get_effective_result(record):
+    if record['kind'] == 'scope':
+        if record['children']:
+            return get_effective_result(record['children'][-1])
+    return record['kind']
+
 def write_td_pass(f, record):
-    if record['kind'] == 'success':
+    result = get_effective_result(record)
+    if result == 'success':
         bgcolor = 'lightgreen'
-    elif record['kind'] == 'failure':
+    elif result == 'failure':
         bgcolor = 'lightcoral'
     else:
         bgcolor = ''
