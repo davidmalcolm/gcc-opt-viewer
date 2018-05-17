@@ -10,11 +10,17 @@ import pygments.lexers
 import pygments.styles
 import pygments.formatters
 
+def log(*args):
+    print(*args)
+
 def read_records(filename):
+    log(' read_records: %r' % filename)
     with open(filename) as f:
         return json.load(f)
 
 def find_records(build_dir):
+    log('find_records: %r' % build_dir)
+
     records = []
 
     # (os.scandir is Python 3.5 onwards)
@@ -138,6 +144,8 @@ def write_html_footer(f):
             '</html>\n')
 
 def make_index_html(out_dir, records):
+    log(' make_index_html')
+
     # Sort by highest-count down to lowest-count
     records = sorted(records, key=record_sort_key)
 
@@ -201,6 +209,8 @@ def get_html_for_message(record):
     return html_for_message
 
 def make_per_source_file_html(build_dir, out_dir, records):
+    log(' make_per_source_file_html')
+
     # Dict of list of record, grouping by source file
     by_src_file = {}
     for record in records:
@@ -219,6 +229,8 @@ def make_per_source_file_html(build_dir, out_dir, records):
         f.write(formatter.get_style_defs())
 
     for src_file in by_src_file:
+        log('  generating HTML for %r' % src_file)
+
         if 0:
             print(src_file)
             print('*' * 76)
@@ -345,6 +357,8 @@ def make_per_source_file_html(build_dir, out_dir, records):
             write_html_footer(f)
 
 def make_html(build_dir, out_dir, records):
+    log('make_html')
+
     if not os.path.exists(out_dir):
         os.mkdir(out_dir)
     make_index_html(out_dir, records)
