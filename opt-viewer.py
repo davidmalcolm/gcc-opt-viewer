@@ -76,6 +76,25 @@ def write_td_count(f, record):
         f.write(html.escape(str(int(record['count']['value']))))
     f.write('    </td>\n')
 
+def write_inlining_chain(f, record):
+    f.write('    <td><ul class="list-group">\n')
+    first = True
+    for inline in record.get('inlining_chain', []):
+        f.write('  <li class="list-group-item">')
+        if not first:
+            f.write ('inlined from ')
+        f.write('<code>%s</code>' % html.escape(inline['fndecl']))
+        site = inline.get('site', None)
+        if site:
+            f.write(' at <a href="%s">%s:%i:%i</a>'
+                    % (url_from_location(site),
+                       html.escape(site['file']),
+                       site['line'],
+                       site['column']))
+        f.write('</li>\n')
+        first = False
+    f.write('    </ul></td>\n')
+
 def url_from_location(loc):
     return '%s#line-%i' % (srcfile_to_html(loc['file']), loc['line'])
 
@@ -122,7 +141,7 @@ def make_index_html(out_dir, records):
         f.write('  <tr>\n')
         f.write('    <th>Source Location</th>\n')
         f.write('    <th>Execution Count</th>\n')
-        f.write('    <th>Function</th>\n')
+        f.write('    <th>Function / Inlining Chain</th>\n')
         f.write('    <th>Pass</th>\n')
         f.write('  </tr>\n')
         for record in records:
@@ -141,10 +160,8 @@ def make_index_html(out_dir, records):
             # Execution Count:
             write_td_count(f, record)
 
-            # Function:
-            f.write('    <td>\n')
-            f.write(html.escape(record['function']))
-            f.write('    </td>\n')
+            # Inlining Chain:
+            write_inlining_chain(f, record)
 
             # Pass:
             write_td_pass(f, record)
@@ -247,7 +264,7 @@ def make_per_source_file_html(build_dir, out_dir, records):
             f.write('    <th>Hotness</th>\n')
             f.write('    <th>Pass</th>\n')
             f.write('    <th>Source</th>\n')
-            f.write('    <th>Inlining Chain</th>\n')
+            f.write('    <th>Function / Inlining Chain</th>\n')
             f.write('  </tr>\n')
             for line_num, html_line in enumerate(html_lines, start=1):
                 # Add row for the source line itself.
@@ -299,23 +316,7 @@ def make_per_source_file_html(build_dir, out_dir, records):
                             % lines)
 
                     # Inlining Chain:
-                    f.write('    <td><ul class="list-group">\n')
-                    first = True
-                    for inline in record.get('inlining_chain', []):
-                        f.write('  <li class="list-group-item">')
-                        if not first:
-                            f.write ('inlined from ')
-                        f.write('<code>%s</code>' % html.escape(inline['fndecl']))
-                        site = inline.get('site', None)
-                        if site:
-                            f.write(' at <a href="%s">%s:%i:%i</a>'
-                                    % (url_from_location(site),
-                                       html.escape(site['file']),
-                                       site['line'],
-                                       site['column']))
-                        f.write('</li>\n')
-                        first = False
-                    f.write('    </ul></td>\n')
+                    write_inlining_chain(f, record)
 
                     f.write('  </tr>\n')
 
