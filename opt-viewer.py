@@ -261,6 +261,8 @@ def make_per_source_file_html(build_dir, out_dir, records):
                 by_line_num[line_num] = []
             by_line_num[line_num].append(record)
 
+        next_id = 0
+
         with open(os.path.join(out_dir, srcfile_to_html(src_file)), "w") as f:
             write_html_header(f, html.escape(src_file),
                               '<link rel="stylesheet" href="style.css" type="text/css" />\n')
@@ -299,7 +301,7 @@ def make_per_source_file_html(build_dir, out_dir, records):
 
                 # Add extra rows for any optimization records that apply to
                 # this line.
-                for i, record in enumerate(by_line_num.get(line_num, [])):
+                for record in by_line_num.get(line_num, []):
                     f.write('  <tr>\n')
 
                     # Line (blank)
@@ -326,8 +328,9 @@ def make_per_source_file_html(build_dir, out_dir, records):
                         f.write('''<button class="btn btn-primary" type="button" data-toggle="collapse" data-target="#collapse-%i" aria-expanded="false" aria-controls="collapse-%i">
     Toggle messages <span class="badge badge-light">%i</span>
   </button>
-                        ''' % (i, i, num_lines))
-                        f.write('<div class="collapse" id="collapse-%i">' %i)
+                        ''' % (next_id, next_id, num_lines))
+                        f.write('<div class="collapse" id="collapse-%i">' % next_id)
+                        next_id += 1
                     f.write(lines)
                     if collapsed:
                         f.write('</div">')
