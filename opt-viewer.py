@@ -38,8 +38,7 @@ def srcfile_to_html(src_file):
     """
     Generate a .html filename for src_file
     """
-    # FIXME: escape directory separators in filename
-    return "%s.html" % src_file
+    return html.escape("%s.html" % src_file.replace('/', '|'))
 
 def record_sort_key(record):
     if 'count' not in record:
