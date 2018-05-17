@@ -292,7 +292,7 @@ def make_per_source_file_html(build_dir, out_dir, records):
 
                 # Add extra rows for any optimization records that apply to
                 # this line.
-                for record in by_line_num.get(line_num, []):
+                for i, record in enumerate(by_line_num.get(line_num, [])):
                     f.write('  <tr>\n')
 
                     # Line (blank)
@@ -312,8 +312,19 @@ def make_per_source_file_html(build_dir, out_dir, records):
                     lines = indent + '<span style="color:green;">^</span>'
                     for line in html_for_message.splitlines():
                         lines += line + '\n' + indent
-                    f.write('    <td><pre style="margin: 0 0;">%s</pre></td>\n'
-                            % lines)
+                    f.write('    <td><pre style="margin: 0 0;">')
+                    num_lines = lines.count('\n')
+                    collapsed =  num_lines > 7
+                    if collapsed:
+                        f.write('''<button class="btn btn-primary" type="button" data-toggle="collapse" data-target="#collapse-%i" aria-expanded="false" aria-controls="collapse-%i">
+    Toggle messages <span class="badge badge-light">%i</span>
+  </button>
+                        ''' % (i, i, num_lines))
+                        f.write('<div class="collapse" id="collapse-%i">' %i)
+                    f.write(lines)
+                    if collapsed:
+                        f.write('</div">')
+                    f.write('</pre></td>\n')
 
                     # Inlining Chain:
                     write_inlining_chain(f, record)
