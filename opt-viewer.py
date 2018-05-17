@@ -144,7 +144,7 @@ def make_index_html(out_dir, records):
     filename = os.path.join(out_dir, "index.html")
     with open(filename, "w") as f:
         write_html_header(f, 'Optimizations', '')
-        f.write('<table class="table table-striped table-bordered">\n')
+        f.write('<table class="table table-striped table-bordered table-sm">\n')
         f.write('  <tr>\n')
         f.write('    <th>Source Location</th>\n')
         f.write('    <th>Execution Count</th>\n')
@@ -265,7 +265,7 @@ def make_per_source_file_html(build_dir, out_dir, records):
             write_html_header(f, html.escape(src_file),
                               '<link rel="stylesheet" href="style.css" type="text/css" />\n')
             f.write('<h1>%s</h1>' % html.escape(src_file))
-            f.write('<table class="table table-striped table-bordered">\n')
+            f.write('<table class="table table-striped table-bordered table-sm">\n')
             f.write('  <tr>\n')
             f.write('    <th>Line</th>\n')
             f.write('    <th>Hotness</th>\n')
