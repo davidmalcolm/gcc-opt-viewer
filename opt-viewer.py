@@ -82,10 +82,18 @@ def write_td_pass(f, record):
 
     f.write('    </td>\n')
 
-def write_td_count(f, record):
+def write_td_count(f, record, highest_count):
     f.write('    <td style="text-align:right">\n')
     if 'count' in record:
-        f.write(html.escape(str(int(record['count']['value']))))
+        if 1:
+            if highest_count == 0:
+                highest_count = 1
+            hotness = 100. * record['count']['value'] / highest_count
+            f.write(html.escape('%.2f' % hotness))
+        else:
+            f.write(html.escape(str(int(record['count']['value']))))
+        if 0:
+            f.write(html.escape(' (%s)' % record['count']['quality']))
     f.write('    </td>\n')
 
 def write_inlining_chain(f, record):
@@ -142,7 +150,7 @@ def write_html_footer(f):
             '  </body>\n'
             '</html>\n')
 
-def make_index_html(out_dir, records):
+def make_index_html(out_dir, records, highest_count):
     log(' make_index_html')
 
     # Sort by highest-count down to lowest-count
@@ -154,7 +162,7 @@ def make_index_html(out_dir, records):
         f.write('<table class="table table-striped table-bordered table-sm">\n')
         f.write('  <tr>\n')
         f.write('    <th>Source Location</th>\n')
-        f.write('    <th>Execution Count</th>\n')
+        f.write('    <th>Hotness</th>\n')
         f.write('    <th>Function / Inlining Chain</th>\n')
         f.write('    <th>Pass</th>\n')
         f.write('  </tr>\n')
@@ -171,8 +179,8 @@ def make_index_html(out_dir, records):
                 f.write('</a>')
             f.write('    </td>\n')
 
-            # Execution Count:
-            write_td_count(f, record)
+            # Hotness:
+            write_td_count(f, record, highest_count)
 
             # Inlining Chain:
             write_inlining_chain(f, record)
@@ -207,7 +215,7 @@ def get_html_for_message(record):
                 html_for_message += '\n  ' + line
     return html_for_message
 
-def make_per_source_file_html(build_dir, out_dir, records):
+def make_per_source_file_html(build_dir, out_dir, records, highest_count):
     log(' make_per_source_file_html')
 
     # Dict of list of record, grouping by source file
@@ -294,7 +302,7 @@ def make_per_source_file_html(build_dir, out_dir, records):
                 # Line:
                 f.write('    <td id="line-%i">%i</td>\n' % (line_num, line_num))
 
-                # Execution Count:
+                # Hotness:
                 f.write('    <td></td>\n')
 
                 # Pass:
@@ -318,8 +326,8 @@ def make_per_source_file_html(build_dir, out_dir, records):
                     # Line (blank)
                     f.write('    <td></td>\n')
 
-                    # Execution Count
-                    write_td_count(f, record)
+                    # Hotness
+                    write_td_count(f, record, highest_count)
 
                     # Pass:
                     write_td_pass(f, record)
@@ -360,8 +368,17 @@ def make_html(build_dir, out_dir, records):
 
     if not os.path.exists(out_dir):
         os.mkdir(out_dir)
-    make_index_html(out_dir, records)
-    make_per_source_file_html(build_dir, out_dir, records)
+
+    highest_count = 0
+    for record in records:
+        if 'count' in record:
+            value = record['count']['value']
+            if value > highest_count:
+                highest_count = value
+    log(' highest_count=%r' % highest_count)
+
+    make_index_html(out_dir, records, highest_count)
+    make_per_source_file_html(build_dir, out_dir, records, highest_count)
 
 def main(build_dir, out_dir):
     records = find_records(build_dir)
