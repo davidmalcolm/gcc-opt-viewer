@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 # TODO: license
 import argparse
+from collections import Counter
 import html
 import json
 import os
@@ -426,8 +427,17 @@ def print_as_remark(record):
                                     record['count']['value'])
     print(msg)
 
+def summarize_records(records):
+    log('records by pass:')
+    num_records_by_pass = Counter()
+    for record in records:
+        num_records_by_pass[record.get('pass', None)] += 1
+    for pass_,count in num_records_by_pass.most_common():
+        log(' %s: %i' % (pass_, count))
+
 def main(build_dir, out_dir):
     records = find_records(build_dir)
+    summarize_records(records)
     if 0:
         for record in records:
             print_as_remark(record)
