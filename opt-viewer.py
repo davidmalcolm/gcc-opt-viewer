@@ -413,20 +413,59 @@ def make_html(build_dir, out_dir, records):
     make_index_html(out_dir, records, highest_count)
     make_per_source_file_html(build_dir, out_dir, records, highest_count)
 
+############################################################################
+
+SGR_START = "\33["
+SGR_END   = "m\33[K"
+
+def SGR_SEQ(str):
+    return SGR_START + str + SGR_END
+
+SGR_RESET = SGR_SEQ("")
+
+COLOR_SEPARATOR  = ";"
+COLOR_BOLD       = "01"
+COLOR_FG_GREEN   = "32"
+COLOR_FG_CYAN    = "36"
+
+def with_color(color, text):
+    if os.isatty(sys.stdout.fileno()):
+        return SGR_SEQ(color) + text + SGR_RESET
+    else:
+        return text
+
+def remark(text):
+    return with_color(COLOR_FG_GREEN + COLOR_SEPARATOR  + COLOR_BOLD, text)
+
+def note(text):
+    return with_color(COLOR_BOLD + COLOR_SEPARATOR + COLOR_FG_CYAN, text)
+
+def bold(text):
+    return with_color(COLOR_BOLD, text)
+
 def print_as_remark(record):
     msg = ''
     loc = record.get('location', None)
     if loc:
-        msg += '%s:%i:%i: ' % (loc['file'], loc['line'], loc['column'])
-    msg += 'remark: '
+        msg += bold('%s:%i:%i: ' % (loc['file'], loc['line'], loc['column']))
+        msg += remark('remark: ')
     for item in record['message']:
-        msg += str(item)
+        if type(item) is dict:
+            if 'expr' in item:
+                msg += "'" + bold(item['expr']) + '"'
+            elif 'stmt' in item:
+                msg += "'" + bold(item['stmt']) + '"'
+        else:
+            msg += item
     if 'pass' in record:
-        msg += ' [pass=%s]' % record['pass']
+        msg += ' [' + remark('pass=%s' % record['pass']) + ']'
     if 'count' in record:
-        msg += ' [count(%s)=%i]' % (record['count']['quality'],
-                                    record['count']['value'])
+        msg += ' [' + note('count(%s)=%i'
+                           % (record['count']['quality'],
+                              record['count']['value']))  + ']'
     print(msg)
+
+############################################################################
 
 def filter_records(records):
     def criteria(record):
