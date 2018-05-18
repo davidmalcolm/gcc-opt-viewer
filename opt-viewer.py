@@ -363,11 +363,32 @@ def make_per_source_file_html(build_dir, out_dir, records, highest_count):
             f.write('</table>\n')
             write_html_footer(f)
 
-def make_html(build_dir, out_dir, records):
-    log('make_html')
+def have_any_precise_counts(records):
+    for record in records:
+        if 'count' in record:
+            if record['count']['quality'] == 'precise':
+                return True
 
-    if not os.path.exists(out_dir):
-        os.mkdir(out_dir)
+def filter_non_precise_counts(records):
+    precise_records = []
+    for record in records:
+        if 'count' in record:
+            if record['count']['quality'] != 'precise':
+                continue
+        precise_records.append(record)
+    log('  purged %i non-precise records'
+        % (len(records) - len(precise_records)))
+    return precise_records
+
+def analyze_counts(records):
+    """
+    Get the highest count, purging any non-precise counts
+    if we have any precise counts.
+    """
+    log(' analyze_counts')
+
+    if have_any_precise_counts(records):
+        records = filter_non_precise_counts(records)
 
     highest_count = 0
     for record in records:
@@ -375,6 +396,16 @@ def make_html(build_dir, out_dir, records):
             value = record['count']['value']
             if value > highest_count:
                 highest_count = value
+
+    return records, highest_count
+
+def make_html(build_dir, out_dir, records):
+    log('make_html')
+
+    if not os.path.exists(out_dir):
+        os.mkdir(out_dir)
+
+    records, highest_count = analyze_counts(records)
     log(' highest_count=%r' % highest_count)
 
     make_index_html(out_dir, records, highest_count)
