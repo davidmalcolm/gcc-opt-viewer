@@ -374,7 +374,8 @@ def filter_non_precise_counts(records):
     precise_records = []
     for record in records:
         if 'count' in record:
-            if record['count']['quality'] != 'precise':
+            quality = record['count']['quality']
+            if quality not in ('precise', 'adjusted'):
                 continue
         precise_records.append(record)
     log('  purged %i non-precise records'
