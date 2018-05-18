@@ -427,6 +427,21 @@ def print_as_remark(record):
                                     record['count']['value'])
     print(msg)
 
+def filter_records(records):
+    def criteria(record):
+        # Hack to filter things a bit:
+        if 'location' in record:
+            src_file = record['location']['file']
+            if 'pgen.c' in src_file:
+                return False
+        if 'pass' in record:
+            if record['pass'] == 'slp':
+                return False
+            if record['pass'] == 'profile':
+                return False
+        return True
+    return list(filter(criteria, records))
+
 def summarize_records(records):
     log('records by pass:')
     num_records_by_pass = Counter()
@@ -437,6 +452,9 @@ def summarize_records(records):
 
 def main(build_dir, out_dir):
     records = find_records(build_dir)
+
+    records = filter_records(records)
+
     summarize_records(records)
     if 0:
         for record in records:
