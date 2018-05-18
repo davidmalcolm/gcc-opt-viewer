@@ -475,9 +475,7 @@ def filter_records(records):
             if 'pgen.c' in src_file:
                 return False
         if 'pass' in record:
-            if record['pass'] == 'slp':
-                return False
-            if record['pass'] == 'profile':
+            if record['pass'] in ('slp', 'fre', 'pre', 'profile'):
                 return False
         return True
     return list(filter(criteria, records))
@@ -492,6 +490,8 @@ def summarize_records(records):
 
 def main(build_dir, out_dir):
     records = find_records(build_dir)
+
+    summarize_records(records)
 
     records = filter_records(records)
 
