@@ -380,8 +380,26 @@ def make_html(build_dir, out_dir, records):
     make_index_html(out_dir, records, highest_count)
     make_per_source_file_html(build_dir, out_dir, records, highest_count)
 
+def print_as_remark(record):
+    msg = ''
+    loc = record.get('location', None)
+    if loc:
+        msg += '%s:%i:%i: ' % (loc['file'], loc['line'], loc['column'])
+    msg += 'remark: '
+    for item in record['message']:
+        msg += str(item)
+    if 'pass' in record:
+        msg += ' [pass=%s]' % record['pass']
+    if 'count' in record:
+        msg += ' [count(%s)=%i]' % (record['count']['quality'],
+                                    record['count']['value'])
+    print(msg)
+
 def main(build_dir, out_dir):
     records = find_records(build_dir)
+    if 0:
+        for record in records:
+            print_as_remark(record)
     if 0:
         for record in records:
             print(record)
