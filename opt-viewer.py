@@ -201,6 +201,10 @@ def get_html_for_message(record):
                 html_for_item = '<code>%s</code>' % html.escape(item['expr'])
             elif 'stmt' in item:
                 html_for_item = '<code>%s</code>' % html.escape(item['stmt'])
+            elif 'name' in item:
+                # symtab node
+                html_for_item = ('<code>%s/%i</code>'
+                                 % (html.escape(item['name']), item['order']))
             else:
                 html_for_item = ''
             if 'location' in item:
