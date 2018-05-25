@@ -76,7 +76,7 @@ def write_td_pass(f, record):
 
     # FIXME: link to GCC source code
     if 'pass' in record:
-        f.write(html.escape(record['pass']))
+        f.write(html.escape(record['pass']['name']))
 
     if impl_url:
         f.write('</a>')
@@ -475,7 +475,7 @@ def filter_records(records):
             if 'pgen.c' in src_file:
                 return False
         if 'pass' in record:
-            if record['pass'] in ('slp', 'fre', 'pre', 'profile'):
+            if record['pass']['name'] in ('slp', 'fre', 'pre', 'profile'):
                 return False
         return True
     return list(filter(criteria, records))
@@ -484,7 +484,8 @@ def summarize_records(records):
     log('records by pass:')
     num_records_by_pass = Counter()
     for record in records:
-        num_records_by_pass[record.get('pass', None)] += 1
+        if 'pass' in record:
+            num_records_by_pass[record['pass'].get('pass', None)] += 1
     for pass_,count in num_records_by_pass.most_common():
         log(' %s: %i' % (pass_, count))
 
