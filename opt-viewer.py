@@ -17,7 +17,8 @@ def log(*args):
 def read_records(filename):
     log(' read_records: %r' % filename)
     with open(filename) as f:
-        return json.load(f)
+        root_obj = json.load(f)
+        return root_obj['records']
 
 def find_records(build_dir):
     log('find_records: %r' % build_dir)
