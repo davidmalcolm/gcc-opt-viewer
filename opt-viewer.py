@@ -492,7 +492,8 @@ def filter_records(records):
             if 'pgen.c' in src_file:
                 return False
         if 'pass' in record:
-            if record['pass']['name'] in ('slp', 'fre', 'pre', 'profile'):
+            if record['pass']['name'] in ('slp', 'fre', 'pre', 'profile',
+                                          'cunroll', 'cunrolli', 'ivcanon'):
                 return False
         return True
     return list(filter(criteria, records))
