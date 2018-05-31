@@ -53,7 +53,13 @@ def get_effective_result(record):
             return get_effective_result(record['children'][-1])
     return record['kind']
 
-def write_td_pass(f, record):
+def get_summary_text(record):
+    if record['kind'] == 'scope':
+        if record['children']:
+            return get_summary_text(record['children'][-1])
+    return get_html_for_message(record)
+
+def write_td_with_color(f, record, html_text):
     result = get_effective_result(record)
     if result == 'success':
         bgcolor = 'lightgreen'
@@ -61,8 +67,10 @@ def write_td_pass(f, record):
         bgcolor = 'lightcoral'
     else:
         bgcolor = ''
-    f.write('    <td bgcolor="%s">\n' % bgcolor)
+    f.write('    <td bgcolor="%s">%s</td>\n' % (bgcolor, html_text))
 
+def write_td_pass(f, record):
+    html_text = ''
     impl_url = None
     impl_file = record['impl_location']['file']
     impl_line = record['impl_location']['line']
@@ -73,16 +81,16 @@ def write_td_pass(f, record):
         impl_url = ('https://github.com/gcc-mirror/gcc/tree/master/%s#L%i'
                     % (relative_file, impl_line))
     if impl_url:
-        f.write('<a href="%s">\n' % impl_url)
+        html_text += '<a href="%s">\n' % impl_url
 
     # FIXME: link to GCC source code
     if 'pass' in record:
-        f.write(html.escape(record['pass']['name']))
+        html_text += html.escape(record['pass']['name'])
 
     if impl_url:
-        f.write('</a>')
+        html_text += '</a>'
 
-    f.write('    </td>\n')
+    write_td_with_color(f, record, html_text)
 
 def write_td_count(f, record, highest_count):
     f.write('    <td style="text-align:right">\n')
@@ -163,6 +171,7 @@ def make_index_html(out_dir, records, highest_count):
         write_html_header(f, 'Optimizations', '')
         f.write('<table class="table table-striped table-bordered table-sm">\n')
         f.write('  <tr>\n')
+        f.write('    <th>Summary</th>\n')
         f.write('    <th>Source Location</th>\n')
         f.write('    <th>Hotness</th>\n')
         f.write('    <th>Function / Inlining Chain</th>\n')
@@ -170,6 +179,9 @@ def make_index_html(out_dir, records, highest_count):
         f.write('  </tr>\n')
         for record in records:
             f.write('  <tr>\n')
+
+            # Summary
+            write_td_with_color(f, record, get_summary_text(record))
 
             # Source Location:
             f.write('    <td>\n')
