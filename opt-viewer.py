@@ -495,6 +495,8 @@ def filter_records(records):
             if record['pass']['name'] in ('slp', 'fre', 'pre', 'profile',
                                           'cunroll', 'cunrolli', 'ivcanon'):
                 return False
+        if record['kind'] == 'state':
+            return False
         return True
     return list(filter(criteria, records))
 
