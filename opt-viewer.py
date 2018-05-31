@@ -5,6 +5,7 @@ from collections import Counter
 import html
 import json
 import os
+from pprint import pprint
 import sys
 
 import pygments.lexers
@@ -14,24 +15,200 @@ import pygments.formatters
 def log(*args):
     print(*args)
 
-def read_records(filename):
-    log(' read_records: %r' % filename)
-    with open(filename) as f:
-        root_obj = json.load(f)
-        return root_obj['records']
+
+class TranslationUnit:
+    """Top-level class for containing optimization records"""
+    @staticmethod
+    def from_filename(filename):
+        with open(filename) as f:
+            root_obj = json.load(f)
+            #pprint(root_obj)
+            return TranslationUnit(root_obj)
+
+    def __init__(self, json_obj):
+        self.pass_by_id = {}
+
+        # Expect a 3-tuple
+        metadata, passes, records = json_obj
+
+        self.format = metadata['format']
+        self.generator = metadata['generator']
+        self.passes = [Pass(obj, self) for obj in passes]
+        self.records = [Record.from_json(obj, self) for obj in records]
+
+    def __repr__(self):
+        return ('TranslationUnit(%r, %r, %r)'
+                % (self.generator, self.passes, self.records))
+
+class Pass:
+    """An optimization pass"""
+    def __init__(self, json_obj, tu):
+        self.id_ = json_obj['id']
+        self.name = json_obj['name']
+        self.num = json_obj['num']
+        self.optgroups = set(json_obj['optgroups']) # list of strings
+        self.type = json_obj['type']
+        tu.pass_by_id[self.id_] = self
+        self.children = [Pass(child, tu)
+                         for child in json_obj.get('children', [])]
+
+    def __repr__(self):
+        return ('Pass(%r, %r, %r, %r)'
+                % (self.name, self.num, self.optgroups, self.type))
+
+def from_optional_json_field(cls, jsonobj, field):
+    if field not in jsonobj:
+        return None
+    return cls(jsonobj[field])
+
+class ImplLocation:
+    """An implementation location (within the compiler itself)"""
+    def __init__(self, json_obj):
+        self.file = json_obj['file']
+        self.line = json_obj['line']
+        self.function = json_obj['function']
+
+    def __repr__(self):
+        return ('ImplLocation(%r, %r, %r)'
+                % (self.file, self.line, self.function))
+
+class Location:
+    """A source location"""
+    def __init__(self, json_obj):
+        self.file = json_obj['file']
+        self.line = json_obj['line']
+        self.column = json_obj['column']
+
+    def __str__(self):
+        return '%s:%i:%i' % (self.file, self.line, self.column)
+
+    def __repr__(self):
+        return ('Location(%r, %r, %r)'
+                % (self.file, self.line, self.column))
+
+class Count:
+    """An execution count"""
+    def __init__(self, json_obj):
+        self.quality = json_obj['quality']
+        self.value = json_obj['value']
+
+    def __repr__(self):
+        return ('Count(%r, %r)'
+                % (self.quality, self.value))
+
+    def is_precise(self):
+        return self.quality in ('precise', 'adjusted')
+
+class BaseRecord:
+    """A optimization record: success/failure/note/state"""
+    @staticmethod
+    def from_json(json_obj, tu):
+        if json_obj['kind'] == 'state':
+            return State(json_obj, tu)
+        else:
+            return Record(json_obj, tu)
+
+    def __init__(self, json_obj, tu):
+        self.kind = json_obj['kind']
+        if 'pass' in json_obj:
+            self.pass_ = tu.pass_by_id[json_obj['pass']]
+        else:
+            self.pass_ = None
+        self.function = json_obj.get('function', None)
+
+class InliningNode:
+    """A node within an inlining chain"""
+    def __init__(self, json_obj):
+        self.fndecl = json_obj['fndecl']
+        self.site = from_optional_json_field(Location, json_obj, 'site')
+
+class Record(BaseRecord):
+    """A optimization record that's not a "state": success/failure/note"""
+    def __init__(self, json_obj, tu):
+        BaseRecord.__init__(self, json_obj, tu)
+        #print('Record.__init: ')
+        #pprint(json_obj)
+        self.impl_location = from_optional_json_field(ImplLocation, json_obj, 'impl_location')
+        self.message = [Item.from_json(obj) for obj in json_obj['message']]
+        self.count = from_optional_json_field(Count, json_obj, 'count')
+        self.location = from_optional_json_field(Location, json_obj, 'location')
+        if 'inlining_chain' in json_obj:
+            self.inlining_chain = [InliningNode(obj)
+                                   for obj in json_obj['inlining_chain']]
+        else:
+            self.inlining_chain = None
+        self.children = [BaseRecord.from_json(child, tu)
+                         for child in json_obj.get('children', [])]
+
+    def __repr__(self):
+        return ('Record(%r, %r, %r, %r, %r)'
+                % (self.kind, self.message, self.pass_, self.function, self.children))
+
+class Item:
+    """Base class for non-string items within a message"""
+    @staticmethod
+    def from_json(json_obj):
+        if isinstance(json_obj, str):
+            return json_obj
+        if 'expr' in json_obj:
+            return Expr(json_obj)
+        elif 'stmt' in json_obj:
+            return Stmt(json_obj)
+        elif 'name' in json_obj:
+            return SymtabNode(json_obj)
+        else:
+            raise ValueError('unrecognized item: %r' % json_obj)
+
+class Expr(Item):
+    """An expression within a message"""
+    def __init__(self, json_obj):
+        self.expr = json_obj['expr']
+        self.location = from_optional_json_field(Location, json_obj, 'location')
+
+class Stmt(Item):
+    """A statement within a message"""
+    def __init__(self, json_obj):
+        self.stmt = json_obj['stmt']
+        self.location = from_optional_json_field(Location, json_obj, 'location')
+
+class SymtabNode(Item):
+    """A symbol table node within a message"""
+    def __init__(self, json_obj):
+        self.name = json_obj['name']
+        self.order = json_obj['order']
+        self.location = from_optional_json_field(Location, json_obj, 'location')
+
+    def __str__(self):
+        return '%s/%s' % (self.name, self.order)
+
+class State(BaseRecord):
+    """The state of a function after a pass has run"""
+    def __init__(self, json_obj, tu):
+        BaseRecord.__init__(self, json_obj, tu)
+        #pprint(json_obj)
+        # TODO: capture CFG, if any, etc
+
+    def __repr__(self):
+        return 'State(%r, %r)' % (self.function, self.pass_)
 
 def find_records(build_dir):
+    """
+    Scan build_dir and below, looking for "*.opt-record.json".
+    Return a list of TranslationUnit instances.
+    """
     log('find_records: %r' % build_dir)
 
-    records = []
+    tus = []
 
     # (os.scandir is Python 3.5 onwards)
     for root, dirs, files in os.walk(build_dir):
         for file_ in files:
             if file_.endswith('.opt-record.json'):
-                records += read_records(os.path.join(root, file_))
+                filename = os.path.join(root, file_)
+                log(' reading: %r' % filename)
+                tus.append(TranslationUnit.from_filename(filename))
 
-    return records
+    return tus
 
 def escape(text):
     return text # FIXME
@@ -43,20 +220,20 @@ def srcfile_to_html(src_file):
     return html.escape("%s.html" % src_file.replace('/', '|'))
 
 def record_sort_key(record):
-    if 'count' not in record:
+    if not record.count:
         return 0
-    return -record['count']['value']
+    return -record.count.value
 
 def get_effective_result(record):
-    if record['kind'] == 'scope':
-        if record['children']:
-            return get_effective_result(record['children'][-1])
-    return record['kind']
+    if record.kind == 'scope':
+        if record.children:
+            return get_effective_result(record.children[-1])
+    return record.kind
 
 def get_summary_text(record):
-    if record['kind'] == 'scope':
-        if record['children']:
-            return get_summary_text(record['children'][-1])
+    if record.kind == 'scope':
+        if record.children:
+            return get_summary_text(record.children[-1])
     return get_html_for_message(record)
 
 def write_td_with_color(f, record, html_text):
@@ -72,8 +249,8 @@ def write_td_with_color(f, record, html_text):
 def write_td_pass(f, record):
     html_text = ''
     impl_url = None
-    impl_file = record['impl_location']['file']
-    impl_line = record['impl_location']['line']
+    impl_file = record.impl_location.file
+    impl_line = record.impl_location.line
     # FIXME: something of a hack:
     PREFIX = '../../src/'
     if impl_file.startswith(PREFIX):
@@ -84,8 +261,8 @@ def write_td_pass(f, record):
         html_text += '<a href="%s">\n' % impl_url
 
     # FIXME: link to GCC source code
-    if 'pass' in record:
-        html_text += html.escape(record['pass']['name'])
+    if record.pass_:
+        html_text += html.escape(record.pass_.name)
 
     if impl_url:
         html_text += '</a>'
@@ -94,39 +271,38 @@ def write_td_pass(f, record):
 
 def write_td_count(f, record, highest_count):
     f.write('    <td style="text-align:right">\n')
-    if 'count' in record:
+    if record.count:
         if 1:
             if highest_count == 0:
                 highest_count = 1
-            hotness = 100. * record['count']['value'] / highest_count
+            hotness = 100. * record.count.value / highest_count
             f.write(html.escape('%.2f' % hotness))
         else:
-            f.write(html.escape(str(int(record['count']['value']))))
+            f.write(html.escape(str(int(record.count.value))))
         if 0:
-            f.write(html.escape(' (%s)' % record['count']['quality']))
+            f.write(html.escape(' (%s)' % record.count.quality))
     f.write('    </td>\n')
 
 def write_inlining_chain(f, record):
     f.write('    <td><ul class="list-group">\n')
     first = True
-    for inline in record.get('inlining_chain', []):
-        f.write('  <li class="list-group-item">')
-        if not first:
-            f.write ('inlined from ')
-        f.write('<code>%s</code>' % html.escape(inline['fndecl']))
-        site = inline.get('site', None)
-        if site:
-            f.write(' at <a href="%s">%s:%i:%i</a>'
-                    % (url_from_location(site),
-                       html.escape(site['file']),
-                       site['line'],
-                       site['column']))
-        f.write('</li>\n')
-        first = False
+    if record.inlining_chain:
+        for inline in record.inlining_chain:
+            f.write('  <li class="list-group-item">')
+            if not first:
+                f.write ('inlined from ')
+            f.write('<code>%s</code>' % html.escape(inline.fndecl))
+            site = inline.site
+            if site:
+                f.write(' at <a href="%s">%s</a>'
+                        % (url_from_location(site),
+                           html.escape(str(site))))
+            f.write('</li>\n')
+            first = False
     f.write('    </ul></td>\n')
 
 def url_from_location(loc):
-    return '%s#line-%i' % (srcfile_to_html(loc['file']), loc['line'])
+    return '%s#line-%i' % (srcfile_to_html(loc.file), loc.line)
 
 def write_html_header(f, title, head_content):
     """
@@ -160,8 +336,13 @@ def write_html_footer(f):
             '  </body>\n'
             '</html>\n')
 
-def make_index_html(out_dir, records, highest_count):
+def make_index_html(out_dir, tus, highest_count):
     log(' make_index_html')
+
+    # Gather all records
+    records = []
+    for tu in tus:
+        records += tu.records
 
     # Sort by highest-count down to lowest-count
     records = sorted(records, key=record_sort_key)
@@ -185,11 +366,10 @@ def make_index_html(out_dir, records, highest_count):
 
             # Source Location:
             f.write('    <td>\n')
-            if 'location' in record:
-                loc = record['location']
+            if record.location:
+                loc = record.location
                 f.write('<a href="%s">' % url_from_location (loc))
-                f.write(html.escape("%s:%s:%i"
-                               % (loc['file'], loc['line'], loc['column'])))
+                f.write(html.escape(str(loc)))
                 f.write('</a>')
             f.write('    </td>\n')
 
@@ -208,40 +388,44 @@ def make_index_html(out_dir, records, highest_count):
 
 def get_html_for_message(record):
     html_for_message = ''
-    for item in record['message']:
-        if type(item) is dict:
-            if 'expr' in item:
-                html_for_item = '<code>%s</code>' % html.escape(item['expr'])
-            elif 'stmt' in item:
-                html_for_item = '<code>%s</code>' % html.escape(item['stmt'])
-            elif 'name' in item:
-                # symtab node
-                html_for_item = ('<code>%s/%i</code>'
-                                 % (html.escape(item['name']), item['order']))
-            else:
-                html_for_item = ''
-            if 'location' in item:
-                loc = item['location']
-                html_for_item = ('<a href="%s">%s</a>'
-                                 % (url_from_location (loc), html_for_item))
-            html_for_message += html_for_item
-        else:
+    for item in record.message:
+        if isinstance(item, str):
             html_for_message += html.escape(str(item))
-    if 'children' in record:
-        for child in record['children']:
+        else:
+            if isinstance(item, Expr):
+                html_for_item = '<code>%s</code>' % html.escape(item.expr)
+            elif isinstance(item, Stmt):
+                html_for_item = '<code>%s</code>' % html.escape(item.stmt)
+            elif isinstance(item, SymtabNode):
+                html_for_item = ('<code>%s/%i</code>'
+                                 % (html.escape(item.name), item.order))
+            else:
+                raise TypeError('unknown message item: %r' % item)
+            if item.location:
+                html_for_item = ('<a href="%s">%s</a>'
+                                 % (url_from_location (item.location), html_for_item))
+            html_for_message += html_for_item
+
+    if record.children:
+        for child in record.children:
             for line in get_html_for_message(child).splitlines():
                 html_for_message += '\n  ' + line
     return html_for_message
 
-def make_per_source_file_html(build_dir, out_dir, records, highest_count):
+def make_per_source_file_html(build_dir, out_dir, tus, highest_count):
     log(' make_per_source_file_html')
+
+    # Gather all records
+    records = []
+    for tu in tus:
+        records += tu.records
 
     # Dict of list of record, grouping by source file
     by_src_file = {}
     for record in records:
-        if 'location' not in record:
+        if not record.location:
             continue
-        src_file = record['location']['file']
+        src_file = record.location.file
         if src_file not in by_src_file:
             by_src_file[src_file] = []
         by_src_file[src_file].append(record)
@@ -293,7 +477,7 @@ def make_per_source_file_html(build_dir, out_dir, records, highest_count):
         # Group by line num
         by_line_num = {}
         for record in by_src_file[src_file]:
-            line_num = record['location']['line']
+            line_num = record.location.line
             if line_num not in by_line_num:
                 by_line_num[line_num] = []
             by_line_num[line_num].append(record)
@@ -351,7 +535,7 @@ def make_per_source_file_html(build_dir, out_dir, records, highest_count):
                     write_td_pass(f, record)
 
                     # Text
-                    column = record['location']['column']
+                    column = record.location.column
                     html_for_message = get_html_for_message(record)
                     # Column number is 1-based:
                     indent = ' ' * (column - 1)
@@ -381,54 +565,57 @@ def make_per_source_file_html(build_dir, out_dir, records, highest_count):
             f.write('</table>\n')
             write_html_footer(f)
 
-def have_any_precise_counts(records):
-    for record in records:
-        if 'count' in record:
-            if record['count']['quality'] == 'precise':
-                return True
+def have_any_precise_counts(tus):
+    for tu in tus:
+        for record in tu.records:
+            if record.count:
+                if record.count.is_precise():
+                    return True
 
-def filter_non_precise_counts(records):
+def filter_non_precise_counts(tus):
     precise_records = []
-    for record in records:
-        if 'count' in record:
-            quality = record['count']['quality']
-            if quality not in ('precise', 'adjusted'):
-                continue
-        precise_records.append(record)
-    log('  purged %i non-precise records'
-        % (len(records) - len(precise_records)))
+    num_filtered = 0
+    for tu in tus:
+        for record in tu.records:
+            if record.count:
+                if not record.count.is_precise():
+                    num_filtered += 1
+                    continue
+            precise_records.append(record)
+    log('  purged %i non-precise records' % num_filtered)
     return precise_records
 
-def analyze_counts(records):
+def analyze_counts(tus):
     """
     Get the highest count, purging any non-precise counts
     if we have any precise counts.
     """
     log(' analyze_counts')
 
-    if have_any_precise_counts(records):
-        records = filter_non_precise_counts(records)
+    if have_any_precise_counts(tus):
+        records = filter_non_precise_counts(tus)
 
     highest_count = 0
-    for record in records:
-        if 'count' in record:
-            value = record['count']['value']
-            if value > highest_count:
-                highest_count = value
+    for tu in tus:
+        for record in tu.records:
+            if record.count:
+                value = record.count.value
+                if value > highest_count:
+                    highest_count = value
 
-    return records, highest_count
+    return highest_count
 
-def make_html(build_dir, out_dir, records):
+def make_html(build_dir, out_dir, tus):
     log('make_html')
 
     if not os.path.exists(out_dir):
         os.mkdir(out_dir)
 
-    records, highest_count = analyze_counts(records)
+    highest_count = analyze_counts(tus)
     log(' highest_count=%r' % highest_count)
 
-    make_index_html(out_dir, records, highest_count)
-    make_per_source_file_html(build_dir, out_dir, records, highest_count)
+    make_index_html(out_dir, tus, highest_count)
+    make_per_source_file_html(build_dir, out_dir, tus, highest_count)
 
 ############################################################################
 
@@ -462,67 +649,76 @@ def bold(text):
 
 def print_as_remark(record):
     msg = ''
-    loc = record.get('location', None)
+    loc = record.location
     if loc:
-        msg += bold('%s:%i:%i: ' % (loc['file'], loc['line'], loc['column']))
+        msg += bold('%s: ' % loc)
         msg += remark('remark: ')
-    for item in record['message']:
-        if type(item) is dict:
-            if 'expr' in item:
-                msg += "'" + bold(item['expr']) + '"'
-            elif 'stmt' in item:
-                msg += "'" + bold(item['stmt']) + '"'
-        else:
+    for item in record.message:
+        if isinstance(item, str):
             msg += item
-    if 'pass' in record:
-        msg += ' [' + remark('pass=%s' % record['pass']) + ']'
-    if 'count' in record:
-        msg += ' [' + note('count(%s)=%i'
-                           % (record['count']['quality'],
-                              record['count']['value']))  + ']'
+        elif isinstance(item, Expr):
+            msg += "'" + bold(item.expr) + "'"
+        elif isinstance(item, Stmt):
+            msg += "'" + bold(item.stmt) + "'"
+        elif isinstance(item, SymtabNode):
+            msg += "'" + bold(str(item)) + "'"
+        else:
+            raise TypeError('unknown message item: %r' % item)
+    if record.pass_:
+        msg += ' [' + remark('pass=%s' % record.pass_.name) + ']'
+    if record.count:
+        msg += (' ['
+                + note('count(%s)=%i'
+                       % (record.count.quality, record.count.value))
+                + ']')
     print(msg)
 
 ############################################################################
 
-def filter_records(records):
+def filter_records(tus):
     def criteria(record):
+        if isinstance(record, State):
+            return False
         # Hack to filter things a bit:
-        if 'location' in record:
-            src_file = record['location']['file']
+        if record.location:
+            src_file = record.location.file
             if 'pgen.c' in src_file:
                 return False
-        if 'pass' in record:
-            if record['pass']['name'] in ('slp', 'fre', 'pre', 'profile',
-                                          'cunroll', 'cunrolli', 'ivcanon'):
+        if record.pass_:
+            if record.pass_.name in ('slp', 'fre', 'pre', 'profile',
+                                     'cunroll', 'cunrolli', 'ivcanon'):
                 return False
-        if record['kind'] == 'state':
-            return False
         return True
-    return list(filter(criteria, records))
+    for tu in tus:
+        tu.records = list(filter(criteria, tu.records))
 
-def summarize_records(records):
+def summarize_records(tus):
     log('records by pass:')
     num_records_by_pass = Counter()
-    for record in records:
-        if 'pass' in record:
-            num_records_by_pass[record['pass'].get('pass', None)] += 1
+    for tu in tus:
+        for record in tu.records:
+            #print(record)
+            if record.pass_:
+                num_records_by_pass[record.pass_.name] += 1
     for pass_,count in num_records_by_pass.most_common():
         log(' %s: %i' % (pass_, count))
 
 def main(build_dir, out_dir):
-    records = find_records(build_dir)
+    tus = find_records(build_dir)
 
-    summarize_records(records)
+    summarize_records(tus)
 
-    records = filter_records(records)
+    filter_records(tus)
 
-    summarize_records(records)
+    summarize_records(tus)
     if 0:
-        for record in records:
-            print_as_remark(record)
+        for tu in tus:
+            for record in tu.records:
+                print_as_remark(record)
     if 0:
-        for record in records:
-            print(record)
-    make_html(build_dir, out_dir, records)
+        for tu in tus:
+            for record in tu.records:
+                print(record)
+    make_html(build_dir, out_dir, tus)
 
 main(sys.argv[1], sys.argv[2])
