@@ -815,6 +815,43 @@ def make_html(build_dir, out_dir, tus):
 
 ############################################################################
 
+def write_record_to_outline(f, record, level):
+    f.write('%s ' % ('*' * level))
+    if record.location:
+        f.write('%s: ' % record.location)
+    for item in record.message:
+        if isinstance(item, str):
+            f.write(item)
+        elif isinstance(item, (Expr, Stmt, SymtabNode)):
+            f.write(str(item))
+        else:
+            raise TypeError('unknown message item: %r' % item)
+    if record.pass_:
+        f.write(' [' + ('pass=%s' % record.pass_.name) + ']')
+    if record.count:
+        f.write(' [' + ('count(%s)=%i'
+                        % (record.count.quality, record.count.value))
+                + ']')
+    f.write('\n')
+    for child in record.children:
+        write_record_to_outline(f, child, level + 1)
+
+def make_outline(build_dir, out_dir, tus):
+    log('make_outline')
+
+    if not os.path.exists(out_dir):
+        os.mkdir(out_dir)
+
+    with open(os.path.join(out_dir, 'outline.txt'), 'w') as f:
+        for tu in tus:
+            f.write('* %s\n' % tu.filename)
+            # FIXME: metadata?
+            for record in tu.get_records():
+                write_record_to_outline(f, record, 2)
+            # FIXME: show passes?
+
+############################################################################
+
 SGR_START = "\33["
 SGR_END   = "m\33[K"
 
@@ -912,5 +949,6 @@ def main(build_dir, out_dir):
             for record in tu.records:
                 print(record)
     make_html(build_dir, out_dir, tus)
+    make_outline(build_dir, out_dir, tus)
 
 main(sys.argv[1], sys.argv[2])
