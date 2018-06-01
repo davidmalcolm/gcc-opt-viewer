@@ -40,6 +40,12 @@ class TranslationUnit:
         return ('TranslationUnit(%r, %r, %r)'
                 % (self.generator, self.passes, self.records))
 
+    def get_records(self):
+        return [obj for obj in self.records if isinstance(obj, Record)]
+
+    def get_states(self):
+        return [obj for obj in self.records if isinstance(obj, State)]
+
 class Pass:
     """An optimization pass"""
     def __init__(self, json_obj, tu):
@@ -185,11 +191,62 @@ class State(BaseRecord):
     """The state of a function after a pass has run"""
     def __init__(self, json_obj, tu):
         BaseRecord.__init__(self, json_obj, tu)
-        #pprint(json_obj)
-        # TODO: capture CFG, if any, etc
+        self.cfg = from_optional_json_field(Cfg, json_obj, 'cfg')
 
     def __repr__(self):
         return 'State(%r, %r)' % (self.function, self.pass_)
+
+class Cfg:
+    """A control-flow graph within a State"""
+    def __init__(self, json_obj):
+        self.blocks = []
+        self.block_by_index = {}
+        for json_block in json_obj:
+            block = Block(json_block)
+            self.blocks.append(block)
+            self.block_by_index[block.index] = block
+        # Create edges once all blocks have been created
+        self.edges = []
+        for json_block in json_obj:
+            src = self.block_by_index[json_block['index']]
+            for json_edge in json_block['succs']:
+                dest = self.block_by_index[json_edge['dest']]
+                e = Edge(src, dest, json_edge)
+                self.edges.append(e)
+
+class Block:
+    """A basic block within a Cfg"""
+    def __init__(self, json_obj):
+        self.index = json_obj['index']
+        self.flags = set(json_obj['flags'])
+        self.stmts = json_obj.get('stmts')
+        # "succs" is done later on, once all blocks have been created
+        self.succs = []
+
+    def __repr__(self):
+        return 'Block(%r, %r)' % (self.index, self.flags)
+
+    def get_nondebug_stmts(self):
+        if not self.stmts:
+            return ''
+        non_debug_lines = []
+        for line in self.stmts.splitlines():
+            if line.startswith('# DEBUG'):
+                continue
+            non_debug_lines.append(line)
+        return '\n'.join(non_debug_lines)
+
+
+class Edge:
+    """An edge within a Cfg"""
+    def __init__(self, src, dest, json_obj):
+        self.src = src
+        self.dest = dest
+        self.flags = set(json_obj['flags'])
+
+    def __repr__(self):
+        return ('Edge(%r, %r, %r)'
+                % (self.src.index, self.dest.index, self.flags))
 
 def find_records(build_dir):
     """
@@ -218,6 +275,12 @@ def srcfile_to_html(src_file):
     Generate a .html filename for src_file
     """
     return html.escape("%s.html" % src_file.replace('/', '|'))
+
+def function_to_html(function):
+    """
+    Generate a .html filename for function
+    """
+    return html.escape("%s.html" % function.replace('/', '|'))
 
 def record_sort_key(record):
     if not record.count:
@@ -342,7 +405,7 @@ def make_index_html(out_dir, tus, highest_count):
     # Gather all records
     records = []
     for tu in tus:
-        records += tu.records
+        records += tu.get_records()
 
     # Sort by highest-count down to lowest-count
     records = sorted(records, key=record_sort_key)
@@ -418,7 +481,7 @@ def make_per_source_file_html(build_dir, out_dir, tus, highest_count):
     # Gather all records
     records = []
     for tu in tus:
-        records += tu.records
+        records += tu.get_records()
 
     # Dict of list of record, grouping by source file
     by_src_file = {}
@@ -565,22 +628,146 @@ def make_per_source_file_html(build_dir, out_dir, tus, highest_count):
             f.write('</table>\n')
             write_html_footer(f)
 
+def write_cfg_view(f, view_id, cfg):
+    # see http://visjs.org/docs/network/
+    f.write('<div id="%s"></div>' % view_id)
+    f.write('<script type="text/javascript">\n')
+    f.write('  var nodes = new vis.DataSet([\n')
+    for block in cfg.blocks:
+        if block.stmts:
+            label = block.get_nondebug_stmts()
+        elif block.index == 0:
+            label = 'ENTRY'
+        elif block.index == 1:
+            label = 'EXIT'
+        else:
+            label = 'Block %i' % block.index
+        f.write("    {id: %i, label: %r},\n"
+                % (block.index, label)) # FIXME: Python vs JS escaping?
+    f.write('    ]);\n')
+    f.write('  var edges = new vis.DataSet([\n')
+    for edge in cfg.edges:
+        label = ' '. join(str(flag) for flag in edge.flags)
+        f.write('    {from: %i, to: %i, label: %r},\n'
+                % (edge.src.index, edge.dest.index, label))
+    f.write(' ]);\n')
+    f.write("  var container = document.getElementById('%s');"
+            % view_id)
+    f.write("""
+  var data = {
+    nodes: nodes,
+    edges: edges
+  };
+  var options = {
+    nodes:{
+      shape: 'box',
+      font: {'face': 'monospace', 'align': 'left'},
+      scaling: {
+        label:true
+      },
+      shadow: true
+    },
+    edges:{
+      arrows: 'to',
+    },
+    layout:{
+      hierarchical: true
+    }
+  };
+  var network = new vis.Network(container, data, options);
+</script>
+""")
+
+def make_per_function_html(build_dir, out_dir, tus):
+    log(' make_per_function_html')
+
+    functions = set()
+    for tu in tus:
+        for state in tu.get_states():
+            functions.add(state.function)
+
+    states_by_function = {}
+    for function in functions:
+        states_by_function[function] = []
+    for tu in tus:
+        for state in tu.get_states():
+            states_by_function[state.function].append(state)
+
+    fns_dir = os.path.join(out_dir, 'functions')
+
+    if not os.path.exists(fns_dir):
+        os.mkdir(fns_dir)
+
+    for function in functions:
+        log('  generating HTML for %r' % function)
+
+        with open(os.path.join(fns_dir, function_to_html(function)), "w") as f:
+            write_html_header(f, html.escape(function),
+                              ('<link rel="stylesheet" href="style.css" type="text/css" />\n'
+                               '<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.js"></script>\n'
+                               '<link href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.css" rel="stylesheet" type="text/css" />\n'))
+
+            f.write('<h1>%s</h1>' % html.escape(function))
+
+            f.write("""
+<div>
+  <div class="row">
+    <div class="col-4">
+      <nav id="navbar-passes" class="navbar navbar-light bg-light flex-column">
+        <a class="navbar-brand" href="#">After Pass</a>
+        <nav class="nav nav-pills flex-column">
+""")
+            for state in states_by_function[function]:
+                f.write('<a class="nav-link" href="#%s">%s</a>\n'
+                        % (state.pass_.id_, state.pass_.name))
+                # FIXME: show pass nesting
+            f.write("""
+        </nav>
+      </nav>
+    </div>
+    <div class="col-8">
+      <div data-spy="scroll" data-target="#navbar-passes" data-offset="0">
+                """)
+            for state in states_by_function[function]:
+                f.write('<div class="shadow-lg p-3 mb-5 bg-white rounded">')
+                f.write('<h4 id="%s">%s</h4>'
+                        % (state.pass_.id_, html.escape(state.pass_.name)))
+                # TODO: show messages
+                if state.cfg:
+                    f.write('<div class="border border-info">')
+                    write_cfg_view(f, 'cfg-%s' % state.pass_.id_, state.cfg)
+                    f.write('</div>')
+                else:
+                    f.write('<p>No CFG</p>')
+                f.write('</div>')
+                # FIXME: *changes* to state are more interesting
+            f.write("""
+      </div>
+    </div>
+  </div>
+</div>
+            """)
+
+            write_html_footer(f)
+
 def have_any_precise_counts(tus):
     for tu in tus:
         for record in tu.records:
-            if record.count:
-                if record.count.is_precise():
-                    return True
+            if isinstance(record, Record):
+                if record.count:
+                    if record.count.is_precise():
+                        return True
 
 def filter_non_precise_counts(tus):
     precise_records = []
     num_filtered = 0
     for tu in tus:
         for record in tu.records:
-            if record.count:
-                if not record.count.is_precise():
-                    num_filtered += 1
-                    continue
+            if isinstance(record, Record):
+                if record.count:
+                    if not record.count.is_precise():
+                        num_filtered += 1
+                        continue
             precise_records.append(record)
     log('  purged %i non-precise records' % num_filtered)
     return precise_records
@@ -598,10 +785,11 @@ def analyze_counts(tus):
     highest_count = 0
     for tu in tus:
         for record in tu.records:
-            if record.count:
-                value = record.count.value
-                if value > highest_count:
-                    highest_count = value
+            if isinstance(record, Record):
+                if record.count:
+                    value = record.count.value
+                    if value > highest_count:
+                        highest_count = value
 
     return highest_count
 
@@ -616,6 +804,7 @@ def make_html(build_dir, out_dir, tus):
 
     make_index_html(out_dir, tus, highest_count)
     make_per_source_file_html(build_dir, out_dir, tus, highest_count)
+    make_per_function_html(build_dir, out_dir, tus)
 
 ############################################################################
 
@@ -678,7 +867,7 @@ def print_as_remark(record):
 def filter_records(tus):
     def criteria(record):
         if isinstance(record, State):
-            return False
+            return True
         # Hack to filter things a bit:
         if record.location:
             src_file = record.location.file
@@ -696,7 +885,7 @@ def summarize_records(tus):
     log('records by pass:')
     num_records_by_pass = Counter()
     for tu in tus:
-        for record in tu.records:
+        for record in tu.get_records():
             #print(record)
             if record.pass_:
                 num_records_by_pass[record.pass_.name] += 1
