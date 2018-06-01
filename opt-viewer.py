@@ -23,9 +23,10 @@ class TranslationUnit:
         with open(filename) as f:
             root_obj = json.load(f)
             #pprint(root_obj)
-            return TranslationUnit(root_obj)
+            return TranslationUnit(filename, root_obj)
 
-    def __init__(self, json_obj):
+    def __init__(self, filename, json_obj):
+        self.filename = filename
         self.pass_by_id = {}
 
         # Expect a 3-tuple
@@ -37,8 +38,8 @@ class TranslationUnit:
         self.records = [Record.from_json(obj, self) for obj in records]
 
     def __repr__(self):
-        return ('TranslationUnit(%r, %r, %r)'
-                % (self.generator, self.passes, self.records))
+        return ('TranslationUnit(%r, %r, %r, %r)'
+                % (self.filename, self.generator, self.passes, self.records))
 
     def get_records(self):
         return [obj for obj in self.records if isinstance(obj, Record)]
