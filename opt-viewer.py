@@ -172,11 +172,17 @@ class Expr(Item):
         self.expr = json_obj['expr']
         self.location = from_optional_json_field(Location, json_obj, 'location')
 
+    def __str__(self):
+        return self.expr
+
 class Stmt(Item):
     """A statement within a message"""
     def __init__(self, json_obj):
         self.stmt = json_obj['stmt']
         self.location = from_optional_json_field(Location, json_obj, 'location')
+
+    def __str__(self):
+        return self.stmt
 
 class SymtabNode(Item):
     """A symbol table node within a message"""
@@ -846,11 +852,7 @@ def print_as_remark(record):
     for item in record.message:
         if isinstance(item, str):
             msg += item
-        elif isinstance(item, Expr):
-            msg += "'" + bold(item.expr) + "'"
-        elif isinstance(item, Stmt):
-            msg += "'" + bold(item.stmt) + "'"
-        elif isinstance(item, SymtabNode):
+        elif isinstance(item, (Expr, Stmt, SymtabNode)):
             msg += "'" + bold(str(item)) + "'"
         else:
             raise TypeError('unknown message item: %r' % item)
