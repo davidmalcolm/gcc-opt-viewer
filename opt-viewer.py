@@ -951,4 +951,10 @@ def main(build_dir, out_dir):
     make_html(build_dir, out_dir, tus)
     make_outline(build_dir, out_dir, tus)
 
-main(sys.argv[1], sys.argv[2])
+parser = argparse.ArgumentParser(description="Parse the output of GCC's -fsave-optimization-record.")
+parser.add_argument('build_dir', metavar='BUILD_DIR', type=str,
+                    help='The directory in which to look for .json.gz files')
+parser.add_argument('output_dir', metavar='OUTPUT_DIR', type=str,
+                    help='The directory to which to write .html output')
+args = parser.parse_args()
+main(args.build_dir, args.output_dir)
