@@ -56,14 +56,18 @@ def get_html_for_message(record):
     return html_for_message
 
 def url_from_location(loc):
-    return '/sourcefile/%s#line-%i' % (urllib.parse.quote(loc.file), loc.line)
+    return '%s#line-%i' % (url_from_sourcefile(loc.file), loc.line)
+
+def url_from_sourcefile(sourcefile):
+    return '/sourcefile/%s' % sourcefile
 
 class Function:
-    def __init__(self, name, sourcefile, hotness, tu):
+    def __init__(self, name, sourcefile, hotness, tu, peak_location):
         self.name = name
         self.sourcefile = sourcefile
         self.hotness = hotness
         self.tu = tu
+        self.peak_location = peak_location
 
 @app.route("/")
 def index():
@@ -76,9 +80,41 @@ def index():
     for r in records:
         r.message_html = Markup(get_html_for_message(r))
 
+    # Mapping of name to Function
+    functions = {}
+    for tu in app.tus:
+        for r in tu.iter_all_records():
+            if r.count:
+                hotness = r.count.value
+            else:
+                hotness = 0
+            funcname = r.function
+            if not funcname:
+                continue
+            if r.location:
+                sourcefile = r.location.file
+            else:
+                sourcefile = None
+            if funcname not in functions:
+                functions[funcname] = Function(funcname, sourcefile,
+                                               hotness, tu.filename, r.location)
+            else:
+                f = functions[funcname]
+                if not f.sourcefile:
+                    f.sourcefile = sourcefile
+                if f.hotness < hotness:
+                    f.hotness = hotness
+                if r.location:
+                    if f.hotness < hotness or not f.peak_location:
+                        f.peak_location = r.location
+
     return render_template('index.html',
                            records=records,
-                           url_from_location=url_from_location)
+                           functions=sorted(list(functions.values()),
+                                            key=lambda f: f.hotness,
+                                            reverse=True),
+                           url_from_location=url_from_location,
+                           url_from_sourcefile=url_from_sourcefile)
 
 @app.route("/all-tus")
 def all_tus():
@@ -130,3 +166,18 @@ def sourcefile(sourcefile):
                            sourcefile=sourcefile,
                            lines=html_lines,
                            css = formatter.get_style_defs())
+
+@app.route("/records")
+def records():
+    # Gather all records
+    records = list(iter_all_records(app))
+
+    # Sort by highest-count down to lowest-count
+    records = sorted(records, key=record_sort_key)
+
+    for r in records:
+        r.message_html = Markup(get_html_for_message(r))
+
+    return render_template('records.html',
+                           records=records,
+                           url_from_location=url_from_location)

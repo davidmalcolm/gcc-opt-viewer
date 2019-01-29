@@ -1,6 +1,6 @@
 {% extends "layout.html" %}
 {% block title %}
-"{{ passname }}" pass
+Optimizations
 {% endblock %}
 
 {% block content %}
@@ -9,25 +9,31 @@
       <li>
 	<a href="/">Optimization Viewer</a>
       </li>
-      <li class="active"> <strong>Pass:</strong>"{{ passname }}"</li>
+      <li class="active"> <strong>All Optimizations</strong></li>
     </ol>
   </div>
+
 <table class="table table-striped table-bordered table-sm">
   <tr>
     <th>Summary</th>
     <th>Source Location</th>
     <th>Hotness</th>
     <th>Function / Inlining Chain</th>
+    <th>Pass</th>
   </tr>
   {% for record in records %}
   <tr>
     <!-- Summary -->
     <td>
+      {{ record.message_html }}
     <!-- write_td_with_color(f, record, get_summary_text(record)) -->
     </td>
 
     <!-- Source Location: -->
     <td>
+      {% if record.location %}
+      <a href="{{url_from_location(record.location)}}">{{ record.location }} </a>
+      {% endif %}
     </td>
 
     <!-- Hotness -->
@@ -58,7 +64,12 @@
       </ul>
     </td>
 
+    <!-- Pass: -->
+    <td>
+    <a href="pass/{{ record.pass_.name }}">{{ record.pass_.name }}</a>
+    </td>
   </tr>
   {% endfor %}
 </table>
+
 {% endblock %}

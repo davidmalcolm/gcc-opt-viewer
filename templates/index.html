@@ -6,66 +6,31 @@ Optimizations
 {% block content %}
   <div class="header">
     <ol class="breadcrumb">
-      <li class="active"> <strong>All Optimizations</strong></li>
+      <li class="active"> <strong>Optimization Viewer</strong></li>
     </ol>
   </div>
 
 <table class="table table-striped table-bordered table-sm">
   <tr>
-    <th>Summary</th>
-    <th>Source Location</th>
-    <th>Hotness</th>
     <th>Function / Inlining Chain</th>
-    <th>Pass</th>
+    <th>Peak Hotness</th>
+    <th>Source File</th>
+    <th>Translation Unit</th>
   </tr>
-  {% for record in records %}
+  {% for fn in functions %}
   <tr>
-    <!-- Summary -->
     <td>
-      {{ record.message_html }}
-    <!-- write_td_with_color(f, record, get_summary_text(record)) -->
-    </td>
-
-    <!-- Source Location: -->
-    <td>
-      {% if record.location %}
-      <a href="{{url_from_location(record.location)}}">{{ record.location }} </a>
+      {% if fn.peak_location %}
+      <a href="{{url_from_location(fn.peak_location)}}">{{ fn.name }}</a>
+      {% else %}
+      {{ fn.name }}
       {% endif %}
     </td>
-
-    <!-- Hotness -->
-    <td style="text-align:right">
-    <!-- write_td_count(f, record, highest_count) -->
-    {{ record.count.value }}
-    </td>
-
-    <!-- Function / Inlining Chain  -->
-    <td>
-      <ul class="list-group">
-	<!-- write_inlining_chain(f, record) -->
-	{% if record.inlining_chain %}
-	{% for inline in record.inlining_chain %}
-	<li class="list-group-item">
-            <!-- if not first: -->
-                <!-- f.write ('inlined from ') -->
-	<code>{{ inline.fndecl }}</code>
-<!--             site = inline.site -->
-<!--             if site: -->
-<!--                 f.write(' at <a href="%s">%s</a>' -->
-<!--                         % (url_from_location(site), -->
-<!--                            html.escape(str(site)))) -->
-	</li>
-        <!-- first = False -->
-	{% endfor %}
-	{% endif %}
-      </ul>
-    </td>
-
-    <!-- Pass: -->
-    <td>
-    <a href="pass/{{ record.pass_.name }}">{{ record.pass_.name }}</a>
-    </td>
+    <td style="text-align:right">{{ fn.hotness }} </th>
+    <td><a href="{{ url_from_sourcefile(fn.sourcefile) }}">{{ fn.sourcefile }}</a></th>
+    <td>{{ fn.tu }} </th>
   </tr>
   {% endfor %}
 </table>
+
 {% endblock %}

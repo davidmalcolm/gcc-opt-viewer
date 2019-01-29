@@ -98,7 +98,7 @@ class Count:
     """An execution count"""
     def __init__(self, json_obj):
         self.quality = json_obj['quality']
-        self.value = json_obj['value']
+        self.value = int(json_obj['value'])
 
     def __repr__(self):
         return ('Count(%r, %r)'
