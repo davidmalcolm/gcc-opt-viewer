@@ -28,6 +28,9 @@ Optimizations
 
     <!-- Source Location: -->
     <td>
+      {% if record.location %}
+      <a href="{{url_from_location(record.location)}}">{{ record.location }} </a>
+      {% endif %}
     </td>
 
     <!-- Hotness -->

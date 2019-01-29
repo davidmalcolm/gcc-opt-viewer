@@ -73,7 +73,12 @@ def index():
     # Sort by highest-count down to lowest-count
     records = sorted(records, key=record_sort_key)
 
-    return render_template('index.html', records=records)
+    for r in records:
+        r.message_html = Markup(get_html_for_message(r))
+
+    return render_template('index.html',
+                           records=records,
+                           url_from_location=url_from_location)
 
 @app.route("/all-tus")
 def all_tus():
