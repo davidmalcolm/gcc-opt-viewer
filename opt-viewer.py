@@ -20,4 +20,5 @@ else:
     tus = find_records(args.build_dir)
     import server
     server.app.tus = tus
+    server.app.build_dir = args.build_dir
     server.app.run()

@@ -1,6 +1,7 @@
 # TODO: license
-
 import html
+import os
+import urllib
 
 from flask import Flask, render_template, Markup
 import pygments.lexers
@@ -54,14 +55,8 @@ def get_html_for_message(record):
                 html_for_message += '\n  ' + line
     return html_for_message
 
-def srcfile_to_html(src_file):
-    """
-    Generate a .html filename for src_file
-    """
-    return html.escape("%s.html" % src_file.replace('/', '|'))
-
 def url_from_location(loc):
-    return '/sourcefile/%s#line-%i' % (srcfile_to_html(loc.file), loc.line)
+    return '/sourcefile/%s#line-%i' % (urllib.parse.quote(loc.file), loc.line)
 
 class Function:
     def __init__(self, name, sourcefile, hotness, tu):
@@ -100,7 +95,7 @@ def pass_(passname):
 @app.route("/sourcefile/<sourcefile>")
 def sourcefile(sourcefile):
     # FIXME: this allows arbitrary reading of files on this machine:
-    with open(sourcefile) as f:
+    with open(os.path.join(app.build_dir, sourcefile)) as f:
         code = f.read()
 
     style = pygments.styles.get_style_by_name('default')

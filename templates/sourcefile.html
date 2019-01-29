@@ -23,7 +23,7 @@
   </tr>
   {% for line in lines %}
   <tr>
-    <td> {{ loop.index }} </td>
+    <td id="line-{{loop.index}}"> {{ loop.index }} </td>
     <td>
       <pre class="prettyprint">{{ line }}</pre>
     </td>
