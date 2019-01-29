@@ -1,0 +1,33 @@
+{% extends "layout.html" %}
+{% block title %}
+{{ sourcefile }}
+{% endblock %}
+
+{% block css %}
+{{ css }}
+{% endblock %}
+
+{% block content %}
+  <div class="header">
+    <ol class="breadcrumb">
+      <li>
+	<a href="/">All Optimizations</a>
+      </li>
+      <li class="active"> <strong>Source file:</strong>"{{ sourcefile }}"</li>
+    </ol>
+  </div>
+<table class="table table-striped table-bordered table-sm">
+  <tr>
+    <th>Line</th>
+    <th>Source</th>
+  </tr>
+  {% for line in lines %}
+  <tr>
+    <td> {{ loop.index }} </td>
+    <td>
+      <pre class="prettyprint">{{ line }}</pre>
+    </td>
+  </tr>
+  {% endfor %}
+</table>
+{% endblock %}
