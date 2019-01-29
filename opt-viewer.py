@@ -35,19 +35,30 @@ class TranslationUnit:
         metadata, passes, records = json_obj
 
         self.format = metadata['format']
-        self.generator = metadata['generator']
+        self.generator = Generator(metadata['generator'])
         self.passes = [Pass(obj, self) for obj in passes]
-        self.records = [Record.from_json(obj, self) for obj in records]
+        self.records = [Record(obj, self) for obj in records]
 
     def __repr__(self):
         return ('TranslationUnit(%r, %r, %r, %r)'
                 % (self.filename, self.generator, self.passes, self.records))
 
-    def get_records(self):
-        return [obj for obj in self.records if isinstance(obj, Record)]
+    def iter_all_records(self):
+        for r in self.records:
+            yield r
+            for d in r.iter_all_descendants():
+                yield d
 
-    def get_states(self):
-        return [obj for obj in self.records if isinstance(obj, State)]
+class Generator:
+    """Metadata about what created the file"""
+    def __init__(self, json_obj):
+        FIELDS = ['name', 'pkgversion', 'version', 'target']
+        for field in FIELDS:
+            setattr(self, field, json_obj[field])
+
+    def __repr__(self):
+        return ('Generator(%r, %r, %r, %r)'
+                % (self.name, self.pkgversion, self.version, self.target))
 
 class Pass:
     """An optimization pass"""
@@ -76,6 +87,9 @@ class ImplLocation:
         self.file = json_obj['file']
         self.line = json_obj['line']
         self.function = json_obj['function']
+
+    def __str__(self):
+        return '%s:%i: %r' % (self.file, self.line, self.function)
 
     def __repr__(self):
         return ('ImplLocation(%r, %r, %r)'
@@ -108,15 +122,8 @@ class Count:
     def is_precise(self):
         return self.quality in ('precise', 'adjusted')
 
-class BaseRecord:
-    """A optimization record: success/failure/note/state"""
-    @staticmethod
-    def from_json(json_obj, tu):
-        if json_obj['kind'] == 'state':
-            return State(json_obj, tu)
-        else:
-            return Record(json_obj, tu)
-
+class Record:
+    """A optimization record: success/failure/note"""
     def __init__(self, json_obj, tu):
         self.kind = json_obj['kind']
         if 'pass' in json_obj:
@@ -124,20 +131,8 @@ class BaseRecord:
         else:
             self.pass_ = None
         self.function = json_obj.get('function', None)
-
-class InliningNode:
-    """A node within an inlining chain"""
-    def __init__(self, json_obj):
-        self.fndecl = json_obj['fndecl']
-        self.site = from_optional_json_field(Location, json_obj, 'site')
-
-class Record(BaseRecord):
-    """A optimization record that's not a "state": success/failure/note"""
-    def __init__(self, json_obj, tu):
-        BaseRecord.__init__(self, json_obj, tu)
-        #print('Record.__init: ')
-        #pprint(json_obj)
-        self.impl_location = from_optional_json_field(ImplLocation, json_obj, 'impl_location')
+        self.impl_location = from_optional_json_field(ImplLocation, json_obj,
+                                                      'impl_location')
         self.message = [Item.from_json(obj) for obj in json_obj['message']]
         self.count = from_optional_json_field(Count, json_obj, 'count')
         self.location = from_optional_json_field(Location, json_obj, 'location')
@@ -146,12 +141,33 @@ class Record(BaseRecord):
                                    for obj in json_obj['inlining_chain']]
         else:
             self.inlining_chain = None
-        self.children = [BaseRecord.from_json(child, tu)
+        self.children = [Record(child, tu)
                          for child in json_obj.get('children', [])]
 
     def __repr__(self):
-        return ('Record(%r, %r, %r, %r, %r)'
-                % (self.kind, self.message, self.pass_, self.function, self.children))
+        return ('Record(kind=%r, pass_%r, function=%r, impl_location=%r,'
+                ' message=%r, count=%r, location=%r, inlining_chain=%r,'
+                ' children=%r)'
+                % (self.kind, self.pass_, self.function, self.impl_location,
+                   self.message, self.count, self.location, self.inlining_chain,
+                   self.children))
+
+    def iter_all_descendants(self):
+        for c in self.children:
+            yield c
+            # Recurse:
+            for d in c.iter_all_descendants():
+                yield d
+
+class InliningNode:
+    """A node within an inlining chain"""
+    def __init__(self, json_obj):
+        self.fndecl = json_obj['fndecl']
+        self.site = from_optional_json_field(Location, json_obj, 'site')
+
+    def __repr__(self):
+        return ('InliningNode(%r, %r)'
+                % (self.fndecl, self.site))
 
 class Item:
     """Base class for non-string items within a message"""
@@ -163,7 +179,7 @@ class Item:
             return Expr(json_obj)
         elif 'stmt' in json_obj:
             return Stmt(json_obj)
-        elif 'name' in json_obj:
+        elif 'symtab_node' in json_obj:
             return SymtabNode(json_obj)
         else:
             raise ValueError('unrecognized item: %r' % json_obj)
@@ -177,6 +193,9 @@ class Expr(Item):
     def __str__(self):
         return self.expr
 
+    def __repr__(self):
+        return 'Expr(%r, %r)' % (self.expr, self.location)
+
 class Stmt(Item):
     """A statement within a message"""
     def __init__(self, json_obj):
@@ -186,76 +205,20 @@ class Stmt(Item):
     def __str__(self):
         return self.stmt
 
+    def __repr__(self):
+        return 'Stmt(%r, %r)' % (self.stmt, self.location)
+
 class SymtabNode(Item):
     """A symbol table node within a message"""
     def __init__(self, json_obj):
-        self.name = json_obj['name']
-        self.order = json_obj['order']
+        self.node = json_obj['symtab_node']
         self.location = from_optional_json_field(Location, json_obj, 'location')
 
     def __str__(self):
-        return '%s/%s' % (self.name, self.order)
-
-class State(BaseRecord):
-    """The state of a function after a pass has run"""
-    def __init__(self, json_obj, tu):
-        BaseRecord.__init__(self, json_obj, tu)
-        self.cfg = from_optional_json_field(Cfg, json_obj, 'cfg')
+        return self.node
 
     def __repr__(self):
-        return 'State(%r, %r)' % (self.function, self.pass_)
-
-class Cfg:
-    """A control-flow graph within a State"""
-    def __init__(self, json_obj):
-        self.blocks = []
-        self.block_by_index = {}
-        for json_block in json_obj:
-            block = Block(json_block)
-            self.blocks.append(block)
-            self.block_by_index[block.index] = block
-        # Create edges once all blocks have been created
-        self.edges = []
-        for json_block in json_obj:
-            src = self.block_by_index[json_block['index']]
-            for json_edge in json_block['succs']:
-                dest = self.block_by_index[json_edge['dest']]
-                e = Edge(src, dest, json_edge)
-                self.edges.append(e)
-
-class Block:
-    """A basic block within a Cfg"""
-    def __init__(self, json_obj):
-        self.index = json_obj['index']
-        self.flags = set(json_obj['flags'])
-        self.stmts = json_obj.get('stmts')
-        # "succs" is done later on, once all blocks have been created
-        self.succs = []
-
-    def __repr__(self):
-        return 'Block(%r, %r)' % (self.index, self.flags)
-
-    def get_nondebug_stmts(self):
-        if not self.stmts:
-            return ''
-        non_debug_lines = []
-        for line in self.stmts.splitlines():
-            if line.startswith('# DEBUG'):
-                continue
-            non_debug_lines.append(line)
-        return '\n'.join(non_debug_lines)
-
-
-class Edge:
-    """An edge within a Cfg"""
-    def __init__(self, src, dest, json_obj):
-        self.src = src
-        self.dest = dest
-        self.flags = set(json_obj['flags'])
-
-    def __repr__(self):
-        return ('Edge(%r, %r, %r)'
-                % (self.src.index, self.dest.index, self.flags))
+        return 'SymtabNode(%r, %r)' % (self.node, self.location)
 
 def find_records(build_dir):
     """
@@ -414,7 +377,7 @@ def make_index_html(out_dir, tus, highest_count):
     # Gather all records
     records = []
     for tu in tus:
-        records += tu.get_records()
+        records += tu.iter_all_records()
 
     # Sort by highest-count down to lowest-count
     records = sorted(records, key=record_sort_key)
@@ -469,8 +432,7 @@ def get_html_for_message(record):
             elif isinstance(item, Stmt):
                 html_for_item = '<code>%s</code>' % html.escape(item.stmt)
             elif isinstance(item, SymtabNode):
-                html_for_item = ('<code>%s/%i</code>'
-                                 % (html.escape(item.name), item.order))
+                html_for_item = '<code>%s</code>' % html.escape(item.node)
             else:
                 raise TypeError('unknown message item: %r' % item)
             if item.location:
@@ -490,7 +452,7 @@ def make_per_source_file_html(build_dir, out_dir, tus, highest_count):
     # Gather all records
     records = []
     for tu in tus:
-        records += tu.get_records()
+        records += tu.iter_all_records()
 
     # Dict of list of record, grouping by source file
     by_src_file = {}
@@ -687,78 +649,6 @@ def write_cfg_view(f, view_id, cfg):
 </script>
 """)
 
-def make_per_function_html(build_dir, out_dir, tus):
-    log(' make_per_function_html')
-
-    functions = set()
-    for tu in tus:
-        for state in tu.get_states():
-            functions.add(state.function)
-
-    states_by_function = {}
-    for function in functions:
-        states_by_function[function] = []
-    for tu in tus:
-        for state in tu.get_states():
-            states_by_function[state.function].append(state)
-
-    fns_dir = os.path.join(out_dir, 'functions')
-
-    if not os.path.exists(fns_dir):
-        os.mkdir(fns_dir)
-
-    for function in functions:
-        log('  generating HTML for %r' % function)
-
-        with open(os.path.join(fns_dir, function_to_html(function)), "w") as f:
-            write_html_header(f, html.escape(function),
-                              ('<link rel="stylesheet" href="style.css" type="text/css" />\n'
-                               '<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.js"></script>\n'
-                               '<link href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.css" rel="stylesheet" type="text/css" />\n'))
-
-            f.write('<h1>%s</h1>' % html.escape(function))
-
-            f.write("""
-<div>
-  <div class="row">
-    <div class="col-4">
-      <nav id="navbar-passes" class="navbar navbar-light bg-light flex-column">
-        <a class="navbar-brand" href="#">After Pass</a>
-        <nav class="nav nav-pills flex-column">
-""")
-            for state in states_by_function[function]:
-                f.write('<a class="nav-link" href="#%s">%s</a>\n'
-                        % (state.pass_.id_, state.pass_.name))
-                # FIXME: show pass nesting
-            f.write("""
-        </nav>
-      </nav>
-    </div>
-    <div class="col-8">
-      <div data-spy="scroll" data-target="#navbar-passes" data-offset="0">
-                """)
-            for state in states_by_function[function]:
-                f.write('<div class="shadow-lg p-3 mb-5 bg-white rounded">')
-                f.write('<h4 id="%s">%s</h4>'
-                        % (state.pass_.id_, html.escape(state.pass_.name)))
-                # TODO: show messages
-                if state.cfg:
-                    f.write('<div class="border border-info">')
-                    write_cfg_view(f, 'cfg-%s' % state.pass_.id_, state.cfg)
-                    f.write('</div>')
-                else:
-                    f.write('<p>No CFG</p>')
-                f.write('</div>')
-                # FIXME: *changes* to state are more interesting
-            f.write("""
-      </div>
-    </div>
-  </div>
-</div>
-            """)
-
-            write_html_footer(f)
-
 def have_any_precise_counts(tus):
     for tu in tus:
         for record in tu.records:
@@ -813,7 +703,6 @@ def make_html(build_dir, out_dir, tus):
 
     make_index_html(out_dir, tus, highest_count)
     make_per_source_file_html(build_dir, out_dir, tus, highest_count)
-    make_per_function_html(build_dir, out_dir, tus)
 
 ############################################################################
 
@@ -848,7 +737,7 @@ def make_outline(build_dir, out_dir, tus):
         for tu in tus:
             f.write('* %s\n' % tu.filename)
             # FIXME: metadata?
-            for record in tu.get_records():
+            for record in tu.iter_all_records():
                 write_record_to_outline(f, record, 2)
             # FIXME: show passes?
 
@@ -908,8 +797,6 @@ def print_as_remark(record):
 
 def filter_records(tus):
     def criteria(record):
-        if isinstance(record, State):
-            return True
         # Hack to filter things a bit:
         if record.location:
             src_file = record.location.file
@@ -927,7 +814,7 @@ def summarize_records(tus):
     log('records by pass:')
     num_records_by_pass = Counter()
     for tu in tus:
-        for record in tu.get_records():
+        for record in tu.iter_all_records():
             #print(record)
             if record.pass_:
                 num_records_by_pass[record.pass_.name] += 1
