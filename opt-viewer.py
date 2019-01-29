@@ -2,6 +2,7 @@
 # TODO: license
 import argparse
 from collections import Counter
+import gzip
 import html
 import json
 import os
@@ -20,10 +21,11 @@ class TranslationUnit:
     """Top-level class for containing optimization records"""
     @staticmethod
     def from_filename(filename):
-        with open(filename) as f:
-            root_obj = json.load(f)
-            #pprint(root_obj)
-            return TranslationUnit(filename, root_obj)
+        with gzip.open(filename) as f:
+            content = f.read()
+        s = content.decode('utf-8')
+        root_obj = json.loads(s)
+        return TranslationUnit(filename, root_obj)
 
     def __init__(self, filename, json_obj):
         self.filename = filename
@@ -267,7 +269,7 @@ def find_records(build_dir):
     # (os.scandir is Python 3.5 onwards)
     for root, dirs, files in os.walk(build_dir):
         for file_ in files:
-            if file_.endswith('.opt-record.json'):
+            if file_.endswith('.opt-record.json.gz'):
                 filename = os.path.join(root, file_)
                 log(' reading: %r' % filename)
                 tus.append(TranslationUnit.from_filename(filename))
