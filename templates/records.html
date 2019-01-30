@@ -1,4 +1,6 @@
 {% extends "layout.html" %}
+{% from 'macros.html' import inlining_chain with context %}
+
 {% block title %}
 Optimizations
 {% endblock %}
@@ -44,24 +46,7 @@ Optimizations
 
     <!-- Function / Inlining Chain  -->
     <td>
-      <ul class="list-group">
-	<!-- write_inlining_chain(f, record) -->
-	{% if record.inlining_chain %}
-	{% for inline in record.inlining_chain %}
-	<li class="list-group-item">
-            <!-- if not first: -->
-                <!-- f.write ('inlined from ') -->
-	<code>{{ inline.fndecl }}</code>
-<!--             site = inline.site -->
-<!--             if site: -->
-<!--                 f.write(' at <a href="%s">%s</a>' -->
-<!--                         % (url_from_location(site), -->
-<!--                            html.escape(str(site)))) -->
-	</li>
-        <!-- first = False -->
-	{% endfor %}
-	{% endif %}
-      </ul>
+      {{ inlining_chain(record) }}
     </td>
 
     <!-- Pass: -->

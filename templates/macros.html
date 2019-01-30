@@ -1,0 +1,15 @@
+{% macro inlining_chain(record) -%}
+<ul class="list-group">
+  {% if record.inlining_chain %}
+    {% for inline in record.inlining_chain %}
+    <li class="list-group-item">
+      {% if loop.index0 > 0 %} inlined from {% endif %}
+      <code>{{ inline.fndecl }}</code>
+      {% if inline.site %}
+      at <a href="{{url_from_location(inline.site)}}">{{inline.site}}</a>
+      {% endif %}
+    </li>
+    {% endfor %}
+  {% endif %}
+</ul>
+{%- endmacro %}
