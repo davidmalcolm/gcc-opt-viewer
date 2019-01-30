@@ -25,11 +25,14 @@
   <tr>
     <!-- Summary -->
     <td>
-    <!-- write_td_with_color(f, record, get_summary_text(record)) -->
+      {{ get_markup_for_record(record) }}
     </td>
 
     <!-- Source Location: -->
     <td>
+      {% if record.location %}
+      <a href="{{url_from_location(record.location)}}">{{ record.location }} </a>
+      {% endif %}
     </td>
 
     <!-- Hotness -->

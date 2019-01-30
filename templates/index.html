@@ -1,4 +1,6 @@
 {% extends "layout.html" %}
+{% from 'macros.html' import inlining_chain, urlify_pass with context %}
+
 {% block title %}
 Optimizations
 {% endblock %}
@@ -64,7 +66,7 @@ Optimizations
   </tr>
   {% for pass in passes %}
   <tr>
-    <td><a href="{{url_from_pass(pass[0])}}">{{ pass[0] }}</a></th>
+    <td>{{ urlify_pass(pass[0]) }}</th>
     <td style="text-align:right">{{ pass[1] }} </th>
     <td style="text-align:right">{{ pass[2] }} </th>
   </tr>

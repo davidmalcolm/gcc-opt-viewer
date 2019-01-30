@@ -1,4 +1,6 @@
 {% extends "layout.html" %}
+{% from 'macros.html' import inlining_chain, urlify_pass with context %}
+
 {% block title %}
 {{ sourcefile }}
 {% endblock %}
@@ -19,15 +21,41 @@
 <table class="table table-striped table-bordered table-sm">
   <tr>
     <th>Line</th>
+    <th>Hotness</th>
+    <th>Pass</th>
     <th>Source</th>
+    <th>Function / Inlining Chain</th>
   </tr>
   {% for line in lines %}
   <tr>
     <td id="line-{{loop.index}}"> {{ loop.index }} </td>
+    <td></td>
+    <td></td>
     <td>
       <pre class="prettyprint">{{ line }}</pre>
     </td>
+    <td></td>
   </tr>
+  {% for record in records_by_line_num[loop.index] %}
+  <tr>
+    <!-- line -->
+    <td></td>
+
+    <td>
+      {{ record.count.value }}
+    </td>
+    <!-- Pass: -->
+    <td>
+      {{ urlify_pass(record.pass_.name) }}
+    </td>
+    <td>
+      {{ get_markup_for_record(record) }}
+    </td>
+    <td>
+      {{ inlining_chain(record) }}
+    </td>
+  </tr>
+  {% endfor %}
   {% endfor %}
 </table>
 {% endblock %}

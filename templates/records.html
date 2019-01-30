@@ -1,5 +1,5 @@
 {% extends "layout.html" %}
-{% from 'macros.html' import inlining_chain with context %}
+{% from 'macros.html' import inlining_chain, urlify_pass with context %}
 
 {% block title %}
 Optimizations
@@ -27,7 +27,7 @@ Optimizations
   <tr>
     <!-- Summary -->
     <td>
-      {{ record.message_html }}
+      {{ get_markup_for_record(record) }}
     <!-- write_td_with_color(f, record, get_summary_text(record)) -->
     </td>
 
@@ -51,7 +51,7 @@ Optimizations
 
     <!-- Pass: -->
     <td>
-    <a href="pass/{{ record.pass_.name }}">{{ record.pass_.name }}</a>
+      {{ urlify_pass(record.pass_.name) }}
     </td>
   </tr>
   {% endfor %}

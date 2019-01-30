@@ -55,6 +55,9 @@ def get_html_for_message(record):
                 html_for_message += '\n  ' + line
     return html_for_message
 
+def get_markup_for_record(record):
+    return Markup('<pre>' + get_html_for_message(record) + '</pre>')
+
 def url_from_location(loc):
     return '%s#line-%i' % (url_from_sourcefile(loc.file), loc.line)
 
@@ -69,7 +72,8 @@ def utility_processor():
     """Expose the various functions to the context of the app's templates."""
     return dict(url_from_location=url_from_location,
                 url_from_sourcefile=url_from_sourcefile,
-                url_from_pass=url_from_pass)
+                url_from_pass=url_from_pass,
+                get_markup_for_record=get_markup_for_record)
 
 class Function:
     def __init__(self, name, sourcefile, hotness, tu, peak_location):
@@ -189,9 +193,34 @@ def sourcefile(sourcefile):
 
     html_lines = [Markup(line) for line in code_as_html.splitlines()]
 
+    # Gather all records
+    records = []
+    for tu in app.tus:
+        records += tu.iter_all_records()
+
+    # Dict of list of record, grouping by source file
+    by_src_file = {}
+    for record in records:
+        if not record.location:
+            continue
+        src_file = record.location.file
+        if src_file not in by_src_file:
+            by_src_file[src_file] = []
+        by_src_file[src_file].append(record)
+
+    # Group by line num
+    by_line_num = {}
+    for record in by_src_file[src_file]:
+        line_num = record.location.line
+        if line_num not in by_line_num:
+            by_line_num[line_num] = []
+        by_line_num[line_num].append(record)
+    print(by_line_num[8])
+
     return render_template('sourcefile.html',
                            sourcefile=sourcefile,
                            lines=html_lines,
+                           records_by_line_num=by_line_num,
                            css = formatter.get_style_defs())
 
 @app.route("/records")
@@ -201,9 +230,6 @@ def records():
 
     # Sort by highest-count down to lowest-count
     records = sorted(records, key=record_sort_key)
-
-    for r in records:
-        r.message_html = Markup(get_html_for_message(r))
 
     return render_template('records.html',
                            records=records)

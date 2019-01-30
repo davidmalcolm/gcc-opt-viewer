@@ -13,3 +13,7 @@
   {% endif %}
 </ul>
 {%- endmacro %}
+
+{% macro urlify_pass(passname) -%}
+<a href="{{url_from_pass(passname)}}">{{passname}}</a>
+{%- endmacro %}
