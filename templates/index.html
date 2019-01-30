@@ -56,4 +56,19 @@ Optimizations
   </tr>
 </table>
 
+<table class="table table-striped table-bordered table-sm">
+  <tr>
+    <th>Pass</th>
+    <th style="text-align:right"># of top-level records</th>
+    <th style="text-align:right">Overall # of records</th>
+  </tr>
+  {% for pass in passes %}
+  <tr>
+    <td><a href="{{url_from_pass(pass[0])}}">{{ pass[0] }}</a></th>
+    <td style="text-align:right">{{ pass[1] }} </th>
+    <td style="text-align:right">{{ pass[2] }} </th>
+  </tr>
+  {% endfor %}
+</table>
+
 {% endblock %}

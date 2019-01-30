@@ -61,6 +61,9 @@ def url_from_location(loc):
 def url_from_sourcefile(sourcefile):
     return '/sourcefile/%s' % sourcefile
 
+def url_from_pass(passname):
+    return '/pass/%s' % passname
+
 class Function:
     def __init__(self, name, sourcefile, hotness, tu, peak_location):
         self.name = name
@@ -108,6 +111,20 @@ def index():
                     if f.hotness < hotness or not f.peak_location:
                         f.peak_location = r.location
 
+    # Mapping of passname to [passname ,num top-level records, num overall records]
+    passes = {}
+    for tu in app.tus:
+        for r in tu.iter_all_records():
+            if r.pass_:
+                passname = r.pass_.name
+            else:
+                passname = None
+            if passname not in passes:
+                passes[passname] = [passname, 0, 0]
+            if r.is_toplevel():
+                passes[passname][1] += 1
+            passes[passname][2] += 1
+
     return render_template('index.html',
                            records=records,
                            functions=sorted(list(functions.values()),
@@ -117,8 +134,10 @@ def index():
                            total_size = sum([tu.size for tu in app.tus]),
                            count_top_level = sum([len(tu.records) for tu in app.tus]),
                            count_all  = sum([tu.count_all_records() for tu in app.tus]),
+                           passes=sorted(passes.values()),
                            url_from_location=url_from_location,
-                           url_from_sourcefile=url_from_sourcefile)
+                           url_from_sourcefile=url_from_sourcefile,
+                           url_from_pass=url_from_pass)
 
 @app.route("/all-tus")
 def all_tus():

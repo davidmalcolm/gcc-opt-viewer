@@ -24,7 +24,7 @@ class TranslationUnit:
         self.format = metadata['format']
         self.generator = Generator(metadata['generator'])
         self.passes = [Pass(obj, self) for obj in passes]
-        self.records = [Record(obj, self) for obj in records]
+        self.records = [Record(obj, self, 0) for obj in records]
 
     def __repr__(self):
         return ('TranslationUnit(%r, %r, %r, %r)'
@@ -117,7 +117,7 @@ class Count:
 
 class Record:
     """A optimization record: success/failure/note"""
-    def __init__(self, json_obj, tu):
+    def __init__(self, json_obj, tu, depth):
         self.kind = json_obj['kind']
         if 'pass' in json_obj:
             self.pass_ = tu.pass_by_id[json_obj['pass']]
@@ -134,7 +134,8 @@ class Record:
                                    for obj in json_obj['inlining_chain']]
         else:
             self.inlining_chain = None
-        self.children = [Record(child, tu)
+        self.depth = depth
+        self.children = [Record(child, tu, depth + 1)
                          for child in json_obj.get('children', [])]
 
     def __repr__(self):
@@ -151,6 +152,9 @@ class Record:
             # Recurse:
             for d in c.iter_all_descendants():
                 yield d
+
+    def is_toplevel(self):
+        return self.depth == 0
 
 class InliningNode:
     """A node within an inlining chain"""
