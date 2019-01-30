@@ -33,4 +33,27 @@ Optimizations
   {% endfor %}
 </table>
 
+<table class="table table-striped table-bordered table-sm">
+  <tr>
+    <th>Translation Unit</th>
+    <th style="text-align:right">Decompressed Size (bytes)</th>
+    <th style="text-align:right"># of top-level records</th>
+    <th style="text-align:right">Overall # of records</th>
+  </tr>
+  {% for tu in tus %}
+  <tr>
+    <td>{{ tu.filename }} </th>
+    <td style="text-align:right">{{ tu.size }} </th>
+    <td style="text-align:right">{{ tu.count_toplevel_records() }} </th>
+    <td style="text-align:right">{{ tu.count_all_records() }} </th>
+  </tr>
+  {% endfor %}
+  <tr>
+    <td style="text-align:right">TOTAL</th>
+    <td style="text-align:right">{{ total_size }} </th>
+    <td style="text-align:right">{{ count_top_level }} </th>
+    <td style="text-align:right">{{ count_all }} </th>
+  </tr>
+</table>
+
 {% endblock %}

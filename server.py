@@ -113,6 +113,10 @@ def index():
                            functions=sorted(list(functions.values()),
                                             key=lambda f: f.hotness,
                                             reverse=True),
+                           tus = app.tus,
+                           total_size = sum([tu.size for tu in app.tus]),
+                           count_top_level = sum([len(tu.records) for tu in app.tus]),
+                           count_all  = sum([tu.count_all_records() for tu in app.tus]),
                            url_from_location=url_from_location,
                            url_from_sourcefile=url_from_sourcefile)
 

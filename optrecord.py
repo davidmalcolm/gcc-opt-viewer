@@ -8,13 +8,15 @@ class TranslationUnit:
     def from_filename(filename):
         with gzip.open(filename) as f:
             content = f.read()
+            size = len(content)
         s = content.decode('utf-8')
         root_obj = json.loads(s)
-        return TranslationUnit(filename, root_obj)
+        return TranslationUnit(filename, root_obj, size)
 
-    def __init__(self, filename, json_obj):
+    def __init__(self, filename, json_obj, size):
         self.filename = filename
         self.pass_by_id = {}
+        self.size = size # decompressed size
 
         # Expect a 3-tuple
         metadata, passes, records = json_obj
@@ -33,6 +35,12 @@ class TranslationUnit:
             yield r
             for d in r.iter_all_descendants():
                 yield d
+
+    def count_toplevel_records(self):
+        return len(self.records)
+
+    def count_all_records(self):
+        return len(list(self.iter_all_records()))
 
 class Generator:
     """Metadata about what created the file"""
