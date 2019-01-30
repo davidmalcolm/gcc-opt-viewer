@@ -64,6 +64,13 @@ def url_from_sourcefile(sourcefile):
 def url_from_pass(passname):
     return '/pass/%s' % passname
 
+@app.context_processor
+def utility_processor():
+    """Expose the various functions to the context of the app's templates."""
+    return dict(url_from_location=url_from_location,
+                url_from_sourcefile=url_from_sourcefile,
+                url_from_pass=url_from_pass)
+
 class Function:
     def __init__(self, name, sourcefile, hotness, tu, peak_location):
         self.name = name
@@ -134,10 +141,7 @@ def index():
                            total_size = sum([tu.size for tu in app.tus]),
                            count_top_level = sum([len(tu.records) for tu in app.tus]),
                            count_all  = sum([tu.count_all_records() for tu in app.tus]),
-                           passes=sorted(passes.values()),
-                           url_from_location=url_from_location,
-                           url_from_sourcefile=url_from_sourcefile,
-                           url_from_pass=url_from_pass)
+                           passes=sorted(passes.values()))
 
 @app.route("/all-tus")
 def all_tus():
@@ -202,5 +206,4 @@ def records():
         r.message_html = Markup(get_html_for_message(r))
 
     return render_template('records.html',
-                           records=records,
-                           url_from_location=url_from_location)
+                           records=records)
