@@ -55,8 +55,35 @@ def get_html_for_message(record):
                 html_for_message += '\n  ' + line
     return html_for_message
 
-def get_markup_for_record(record):
-    return Markup('<pre>' + get_html_for_message(record) + '</pre>')
+def get_markup_for_record(record, idx, with_indentation):
+    html_for_message = get_html_for_message(record)
+
+    lines = ''
+    # Column number is 1-based:
+    if with_indentation and record.location:
+        column = record.location.column
+        indent = ' ' * (column - 1)
+        lines += indent + '<span style="color:green;">^</span>'
+    else:
+        indent = ''
+    for line in html_for_message.splitlines():
+        lines += line + '\n' + indent
+
+    html = lines
+
+    num_lines = lines.count('\n')
+    collapsed =  num_lines > 7
+    if collapsed:
+        button = '''<button class="btn btn-primary" type="button" data-toggle="collapse" data-target="#collapse-%i" aria-expanded="false" aria-controls="collapse-%i">
+    Toggle messages <span class="badge badge-light">%i</span>
+  </button>
+        ''' % (idx, idx, num_lines)
+        html = (button
+                + ('<div class="collapse" id="collapse-%i">' % idx)
+                + html
+                +'</div>')
+
+    return Markup('<pre style="margin: 0 0;">' + html + '</pre>')
 
 def url_from_location(loc):
     return '%s#line-%i' % (url_from_sourcefile(loc.file), loc.line)
@@ -90,9 +117,6 @@ def index():
 
     # Sort by highest-count down to lowest-count
     records = sorted(records, key=record_sort_key)
-
-    for r in records:
-        r.message_html = Markup(get_html_for_message(r))
 
     # Mapping of name to Function
     functions = {}

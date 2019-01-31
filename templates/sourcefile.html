@@ -49,7 +49,7 @@
       {{ urlify_pass(record.pass_.name) }}
     </td>
     <td>
-      {{ get_markup_for_record(record) }}
+      {{ get_markup_for_record(record, loop.index0, True) }}
     </td>
     <td>
       {{ inlining_chain(record) }}

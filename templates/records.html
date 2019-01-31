@@ -27,7 +27,7 @@ Optimizations
   <tr>
     <!-- Summary -->
     <td>
-      {{ get_markup_for_record(record) }}
+      {{ get_markup_for_record(record, loop.index0, False) }}
     <!-- write_td_with_color(f, record, get_summary_text(record)) -->
     </td>
 
