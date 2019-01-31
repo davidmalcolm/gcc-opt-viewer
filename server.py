@@ -217,29 +217,23 @@ def sourcefile(sourcefile):
 
     html_lines = [Markup(line) for line in code_as_html.splitlines()]
 
-    # Gather all records
+    # Gather top-level records affecting this source file:
     records = []
     for tu in app.tus:
-        records += tu.iter_all_records()
-
-    # Dict of list of record, grouping by source file
-    by_src_file = {}
-    for record in records:
-        if not record.location:
-            continue
-        src_file = record.location.file
-        if src_file not in by_src_file:
-            by_src_file[src_file] = []
-        by_src_file[src_file].append(record)
+        for r in tu.records:
+            if not r.location:
+                continue
+            if r.location.file != sourcefile:
+                continue
+            records.append(r)
 
     # Group by line num
     by_line_num = {}
-    for record in by_src_file[src_file]:
+    for record in records:
         line_num = record.location.line
         if line_num not in by_line_num:
             by_line_num[line_num] = []
         by_line_num[line_num].append(record)
-    print(by_line_num[8])
 
     return render_template('sourcefile.html',
                            sourcefile=sourcefile,
