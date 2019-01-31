@@ -28,11 +28,11 @@
   </tr>
   {% for line in lines %}
   <tr>
-    <td id="line-{{loop.index}}"> {{ loop.index }} </td>
+    <td style="text-align:right" id="line-{{loop.index}}"> {{ loop.index }} </td>
     <td></td>
     <td></td>
-    <td>
-      <pre class="prettyprint">{{ line }}</pre>
+    <td style="padding: 0 0 0 0;">
+      <pre class="highlight" style="padding: 0 0 0 0;">{{ line }}</pre>
     </td>
     <td></td>
   </tr>
