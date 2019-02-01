@@ -9,6 +9,7 @@ import pygments.styles
 import pygments.formatters
 
 from optrecord import TranslationUnit, Record, Expr, Stmt, SymtabNode
+from utils import get_effective_result
 
 app = Flask(__name__)
 
@@ -55,6 +56,16 @@ def get_html_for_message(record):
                 html_for_message += '\n  ' + line
     return html_for_message
 
+def get_color_for_record(record):
+    result = get_effective_result(record)
+    if result == 'success':
+        bgcolor = 'lightgreen'
+    elif result == 'failure':
+        bgcolor = 'lightcoral'
+    else:
+        bgcolor = ''
+    return Markup('bgcolor="%s"' % bgcolor)
+
 def get_markup_for_record(record, idx, with_indentation):
     html_for_message = get_html_for_message(record)
 
@@ -100,6 +111,7 @@ def utility_processor():
     return dict(url_from_location=url_from_location,
                 url_from_sourcefile=url_from_sourcefile,
                 url_from_pass=url_from_pass,
+                get_color_for_record=get_color_for_record,
                 get_markup_for_record=get_markup_for_record)
 
 class Function:

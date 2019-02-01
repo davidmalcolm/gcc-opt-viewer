@@ -1,5 +1,5 @@
 {% extends "layout.html" %}
-{% from 'macros.html' import inlining_chain, urlify_pass with context %}
+{% from 'macros.html' import inlining_chain, urlify_pass, td_for_record with context %}
 
 {% block title %}
 Optimizations
@@ -26,10 +26,7 @@ Optimizations
   {% for record in records %}
   <tr>
     <!-- Summary -->
-    <td>
-      {{ get_markup_for_record(record, loop.index0, False) }}
-    <!-- write_td_with_color(f, record, get_summary_text(record)) -->
-    </td>
+    {{ td_for_record (record, loop.index0, False) }}
 
     <!-- Source Location: -->
     <td>

@@ -1,5 +1,5 @@
 {% extends "layout.html" %}
-{% from 'macros.html' import inlining_chain with context %}
+{% from 'macros.html' import inlining_chain, td_for_record with context %}
 
 {% block title %}
 "{{ passname }}" pass
@@ -24,9 +24,7 @@
   {% for record in records %}
   <tr>
     <!-- Summary -->
-    <td>
-      {{ get_markup_for_record(record, loop.index0, False) }}
-    </td>
+    {{ td_for_record(record, loop.index0, False) }}
 
     <!-- Source Location: -->
     <td>

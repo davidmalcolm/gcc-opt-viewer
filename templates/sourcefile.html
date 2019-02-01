@@ -1,5 +1,5 @@
 {% extends "layout.html" %}
-{% from 'macros.html' import inlining_chain, urlify_pass with context %}
+{% from 'macros.html' import inlining_chain, urlify_pass, td_for_record with context %}
 
 {% block title %}
 {{ sourcefile }}
@@ -48,9 +48,7 @@
     <td>
       {{ urlify_pass(record.pass_.name) }}
     </td>
-    <td>
-      {{ get_markup_for_record(record, loop.index0, True) }}
-    </td>
+    {{ td_for_record(record, loop.index0, True) }}
     <td>
       {{ inlining_chain(record) }}
     </td>

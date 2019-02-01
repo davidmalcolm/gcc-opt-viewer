@@ -17,3 +17,9 @@
 {% macro urlify_pass(passname) -%}
 <a href="{{url_from_pass(passname)}}">{{passname}}</a>
 {%- endmacro %}
+
+{% macro td_for_record(record, idx, with_indentation) -%}
+<td {{ get_color_for_record (record) }} >
+  {{ get_markup_for_record(record, idx, with_indentation) }}
+</td>
+{%- endmacro %}

@@ -24,3 +24,8 @@ def find_records(build_dir):
 
     return tus
 
+def get_effective_result(record):
+    if record.kind == 'scope':
+        if record.children:
+            return get_effective_result(record.children[-1])
+    return record.kind

@@ -12,7 +12,7 @@ import pygments.styles
 import pygments.formatters
 
 from optrecord import TranslationUnit, Record, Expr, Stmt, SymtabNode
-from utils import find_records, log
+from utils import find_records, log, get_effective_result
 
 def srcfile_to_html(src_file):
     """
@@ -30,12 +30,6 @@ def record_sort_key(record):
     if not record.count:
         return 0
     return -record.count.value
-
-def get_effective_result(record):
-    if record.kind == 'scope':
-        if record.children:
-            return get_effective_result(record.children[-1])
-    return record.kind
 
 def get_summary_text(record):
     if record.kind == 'scope':
